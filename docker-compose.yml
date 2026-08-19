@@ -1,0 +1,94 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    container_name: hris_app
+    restart: unless-stopped
+    volumes:
+      - .:/var/www/html:z
+      - app_storage:/var/www/html/storage:z
+      - app_bootstrap_cache:/var/www/html/bootstrap/cache:z
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hris_network
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nginx
+    container_name: hris_nginx
+    restart: unless-stopped
+    # Loopback-bound: Docker inserts its nat rules ahead of UFW, so an
+    # unqualified "8080:80" publishes the dev stack to the whole network.
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:80"
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - .:/var/www/html:ro,z
+      - app_storage:/var/www/html/storage:ro,z
+    depends_on:
+      - app
+    networks:
+      - hris_network
+
+  db:
+    image: docker.io/library/mysql:8.4
+    container_name: hris_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-secret}
+      MYSQL_DATABASE: ${DB_DATABASE:-hris}
+      MYSQL_USER: ${DB_USERNAME:-hris}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-secret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hris_network
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: hris_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hris_network
+
+  # Face recognition microservice. Reached internally by the Laravel `app`
+  # container at http://face-recognition:5000. Never published to the host —
+  # Laravel owns auth and proxies the only legitimate callers.
+  face-recognition:
+    build:
+      context: ./services/face-recognition
+    container_name: hris_face
+    restart: unless-stopped
+    networks:
+      - hris_network
+
+volumes:
+  db_data:
+  redis_data:
+  app_storage:
+  app_bootstrap_cache:
+
+networks:
+  hris_network:
+    driver: bridge

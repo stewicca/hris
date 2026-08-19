@@ -1,0 +1,105 @@
+# syntax=docker/dockerfile:1
+
+# =============================================================================
+# Stage 1: Build frontend assets (dashboard + employee SPA)
+# =============================================================================
+FROM node:22-alpine AS frontend
+
+WORKDIR /app
+
+# Install PHP for Wayfinder code generation during build
+RUN apk add --no-cache php84 php84-phar php84-mbstring php84-openssl \
+    php84-tokenizer php84-xml php84-xmlwriter php84-dom php84-fileinfo \
+    php84-pdo php84-pdo_sqlite php84-sqlite3 php84-ctype php84-session \
+    php84-pcntl php84-posix php84-simplexml php84-xmlreader php84-iconv \
+    && ln -sf /usr/bin/php84 /usr/local/bin/php
+
+COPY composer.json composer.lock ./
+COPY --from=docker.io/library/composer:2 /usr/bin/composer /usr/bin/composer
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+# Copy root manifest + lockfile, plus every workspace package.json so that
+# `npm ci` can resolve workspace symlinks (e.g. @hris/shared) and install
+# workspace-scoped devDependencies before the full source is copied.
+COPY package.json package-lock.json ./
+COPY frontend/apps/employee/package.json frontend/apps/employee/
+COPY frontend/packages/shared/package.json frontend/packages/shared/
+RUN npm ci
+
+COPY . .
+
+ARG VITE_APP_NAME=HRIS
+ENV VITE_APP_NAME=${VITE_APP_NAME}
+
+# Build the dashboard (Laravel/Inertia) and the employee SPA.
+# NOTE: the open-file limit must be raised via `podman build --ulimit nofile`
+# because rootless buildah caps the hard limit at 1024, which esbuild blows
+# past while resolving tsconfig/workspaces.
+RUN npm run build && npm run build:employee
+
+# =============================================================================
+# Stage 2: PHP-FPM application (Laravel backend)
+# =============================================================================
+FROM php:8.4-fpm-alpine AS app
+
+WORKDIR /var/www/html
+
+RUN apk add --no-cache \
+    curl \
+    libpng-dev \
+    libxml2-dev \
+    oniguruma-dev \
+    zip \
+    unzip \
+    git \
+    supervisor
+
+RUN docker-php-ext-install \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    opcache
+
+RUN apk add --no-cache $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del $PHPIZE_DEPS
+
+COPY --from=docker.io/library/composer:2 /usr/bin/composer /usr/bin/composer
+
+COPY . .
+COPY --from=frontend /app/public/build ./public/build
+
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+RUN mkdir -p /var/log/supervisor \
+    && chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html/storage /var/www/html/bootstrap/cache
+
+COPY docker/supervisor.conf /etc/supervisor/conf.d/supervisor.conf
+COPY docker/php-fpm.prod.conf /usr/local/etc/php-fpm.d/www.conf
+COPY docker/php.prod.ini /usr/local/etc/php/conf.d/app.ini
+COPY docker/entrypoint.prod.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 9000
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisor.conf"]
+
+# =============================================================================
+# Stage 3: Nginx (Laravel public + employee static SPA)
+# =============================================================================
+FROM nginx:1.27-alpine AS nginx
+
+COPY docker/nginx.prod.conf.template /etc/nginx/templates/default.conf.template
+
+# Laravel public assets (index.php + built dashboard bundle)
+COPY --from=frontend /app/public /var/www/html/public
+
+# Employee SPA static build
+COPY --from=frontend /app/frontend/apps/employee/dist /var/www/employee

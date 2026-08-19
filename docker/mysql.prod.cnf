@@ -1,0 +1,9 @@
+[mysqld]
+# Tuned for a small VPS. MySQL 8 defaults reserve far more than this box can
+# spare; performance_schema alone accounts for roughly 150-200 MB.
+innodb_buffer_pool_size = 192M
+innodb_log_file_size    = 64M
+innodb_flush_method     = O_DIRECT
+performance_schema      = OFF
+max_connections         = 30
+table_open_cache        = 400

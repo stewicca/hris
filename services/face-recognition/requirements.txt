@@ -1,0 +1,10 @@
+# Face recognition microservice dependencies.
+# Pinned to known-good majors; onnxruntime is CPU-only here (no CUDA/tensorrt).
+fastapi==0.115.*
+uvicorn[standard]==0.34.*
+insightface==0.7.*        # bundles the ONNX model loader + ArcFace zoo
+onnxruntime==1.20.*       # CPU inference backend for InsightFace models
+opencv-python-headless==4.10.*  # image decode; headless build avoids GTK deps
+numpy==1.26.*
+python-multipart==0.0.*   # multipart/form-data parsing for UploadFile
+pydantic==2.*

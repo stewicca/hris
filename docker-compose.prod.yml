@@ -1,0 +1,168 @@
+# =============================================================================
+# Production stack. Sized for a 2 vCPU / 4 GB VPS.
+#
+# ALWAYS start this with an explicit env file:
+#
+#     docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+#
+# Compose resolves ${VAR} from `.env` in the project directory by default, NOT
+# from the .env.prod bind-mounted into the app container. Without --env-file
+# the database would be created with one password while Laravel authenticates
+# with another. No variable below has a default, so a missing --env-file fails
+# loudly instead of silently provisioning a guessable password.
+#
+# IMAGE_PREFIX selects where the images come from. It defaults to
+# "localhost/hris", meaning images built on this machine or side-loaded with
+# `docker load`. Set it to a registry path (e.g. ghcr.io/acme/hris) in
+# .env.prod to make `docker compose pull` work.
+# =============================================================================
+services:
+  app:
+    image: ${IMAGE_PREFIX:-localhost/hris}-app:prod
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: app
+    container_name: hris_app
+    restart: unless-stopped
+    volumes:
+      - .env.prod:/var/www/html/.env:ro,z
+      - prod_storage:/var/www/html/storage:z
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    # Worst case is pm.max_children x memory_limit (8 x 192M) from
+    # docker/php-fpm.prod.conf. Raise both together or neither.
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+    networks:
+      - hris_network
+
+  nginx:
+    image: ${IMAGE_PREFIX:-localhost/hris}-nginx:prod
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: nginx
+    container_name: hris_nginx
+    restart: unless-stopped
+    environment:
+      # Rendered into server_name at container start. Only HRIS_* is
+      # substituted, so nginx's own $$variables survive envsubst.
+      NGINX_ENVSUBST_FILTER: '^HRIS_'
+      HRIS_DASHBOARD_HOST: ${HRIS_DASHBOARD_HOST:?HRIS_DASHBOARD_HOST is required}
+      HRIS_PORTAL_HOST: ${HRIS_PORTAL_HOST:?HRIS_PORTAL_HOST is required}
+    # Bound to loopback: Caddy on the host terminates TLS and proxies here.
+    # Docker writes its own nat rules ahead of UFW, so a bare "8080:80" would
+    # publish this to the public internet regardless of `ufw status`.
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - prod_storage:/var/www/html/storage:ro,z
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    networks:
+      - hris_network
+
+  db:
+    image: docker.io/library/mysql:8.4
+    container_name: hris_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${DB_DATABASE:?DB_DATABASE is required}
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME is required}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docker/mysql.prod.cnf:/etc/mysql/conf.d/hris.cnf:ro,z
+    # No `ports:` on purpose — the database is reachable only over the
+    # internal network. From a laptop, tunnel instead:
+    #   ssh -L 3306:127.0.0.1:3306 <your-ssh-alias>
+    # after temporarily binding 127.0.0.1:3306:3306 if you truly need it.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - hris_network
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: hris_redis
+    restart: unless-stopped
+    # maxmemory keeps redis inside its container limit instead of being
+    # OOM-killed by the kernel when the dataset grows.
+    command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    networks:
+      - hris_network
+
+  # Face recognition microservice (CPU-only ArcFace + liveness heuristic).
+  # Internal-only; Laravel reaches it at http://face-recognition:5000.
+  # By far the heaviest container: the buffalo_l model pack plus onnxruntime
+  # arenas dominate this stack's memory budget.
+  face-recognition:
+    image: ${IMAGE_PREFIX:-localhost/hris}-face-recognition:prod
+    build:
+      context: ./services/face-recognition
+    container_name: hris_face
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+    networks:
+      - hris_network
+
+volumes:
+  db_data:
+  redis_data:
+  prod_storage:
+
+networks:
+  hris_network:
+    driver: bridge

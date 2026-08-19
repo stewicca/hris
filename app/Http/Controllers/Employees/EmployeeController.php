@@ -1,0 +1,205 @@
+<?php
+
+namespace App\Http\Controllers\Employees;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Employees\StoreEmployeeRequest;
+use App\Http\Requests\Employees\UpdateEmployeeRequest;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\Position;
+use App\Models\Shift;
+use App\Models\User;
+use App\Support\UsernameGenerator;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+class EmployeeController extends Controller
+{
+    public function index(): Response
+    {
+        $employees = Employee::query()
+            ->with(['user', 'department', 'position'])
+            ->latest()
+            ->paginate(15);
+
+        return Inertia::render('employees/index', [
+            'employees' => $employees,
+            'generatedPassword' => session('generated_password'),
+        ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('employees/create', [
+            'departments' => Department::orderBy('name')->get(['id', 'name']),
+            'positions' => Position::orderBy('name')->get(['id', 'name']),
+            'shifts' => Shift::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+        ]);
+    }
+
+    public function store(StoreEmployeeRequest $request): RedirectResponse
+    {
+        $plainPassword = Str::password(12, symbols: false);
+
+        $user = User::create([
+            'name' => $request->name,
+            'username' => UsernameGenerator::generate($request->name),
+            'email' => $request->email,
+            'password' => Hash::make($plainPassword),
+            'is_admin' => $request->boolean('is_admin'),
+        ]);
+
+        Employee::create([
+            ...$request->validated(),
+            'user_id' => $user->id,
+            'employee_number' => Employee::generateEmployeeNumber(),
+            'annual_leave_quota' => $request->filled('annual_leave_quota') ? $request->integer('annual_leave_quota') : 12,
+        ]);
+
+        return to_route('employees.index')
+            ->with('generated_password', $plainPassword);
+    }
+
+    public function show(Employee $employee): Response
+    {
+        $employee->load(['user', 'department', 'position']);
+
+        $summary = $employee->attendances()
+            ->whereYear('date', now()->year)
+            ->whereMonth('date', now()->month)
+            ->selectRaw("
+                COUNT(CASE WHEN status = 'present' THEN 1 END) as present,
+                COUNT(CASE WHEN status = 'late' THEN 1 END) as late,
+                COUNT(CASE WHEN status = 'absent' THEN 1 END) as absent,
+                COUNT(*) as total
+            ")
+            ->first();
+
+        $monthlyRecap = $employee->attendances()
+            ->where('date', '>=', now()->subMonths(11)->startOfMonth())
+            ->orderBy('date', 'desc')
+            ->get()
+            ->groupBy(fn ($a) => $a->date->format('Y-m'))
+            ->map(fn ($group) => [
+                'year' => (int) $group->first()->date->format('Y'),
+                'month' => (int) $group->first()->date->format('m'),
+                'present' => $group->where('status', 'present')->count(),
+                'late' => $group->where('status', 'late')->count(),
+                'absent' => $group->where('status', 'absent')->count(),
+                'total' => $group->count(),
+            ])
+            ->values();
+
+        return Inertia::render('employees/show', [
+            'employee' => $employee,
+            'leaveSummary' => $employee->annualLeaveSummary(),
+            'salaries' => $employee->salaries()->orderByDesc('period')->get(),
+            'attendanceSummary' => [
+                'present' => (int) $summary?->present,
+                'late' => (int) $summary?->late,
+                'absent' => (int) $summary?->absent,
+                'total' => (int) $summary?->total,
+            ],
+            'monthlyRecap' => $monthlyRecap,
+            'attendances' => Inertia::defer(
+                fn () => $employee->attendances()
+                    ->latest('date')
+                    ->paginate(20),
+            ),
+        ]);
+    }
+
+    public function attendanceExport(Employee $employee): StreamedResponse
+    {
+        $attendances = $employee->attendances()->orderBy('date', 'desc')->get();
+
+        $filename = 'kehadiran-'.Str::slug($employee->name).'-'.now()->format('Ymd').'.csv';
+
+        return response()->streamDownload(function () use ($attendances, $employee) {
+            $handle = fopen('php://output', 'w');
+
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, ['Nama', 'No. Karyawan', 'Tanggal', 'Masuk', 'Pulang', 'Istirahat Mulai', 'Istirahat Selesai', 'Status']);
+
+            foreach ($attendances as $a) {
+                fputcsv($handle, [
+                    $employee->name,
+                    $employee->employee_number,
+                    $a->date->format('d/m/Y'),
+                    $a->check_in ?? '-',
+                    $a->check_out ?? '-',
+                    $a->break_start ?? '-',
+                    $a->break_end ?? '-',
+                    match ($a->status) {
+                        'present' => 'Hadir',
+                        'late' => 'Terlambat',
+                        'absent' => 'Absen',
+                        default => $a->status,
+                    },
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function edit(Employee $employee): Response
+    {
+        return Inertia::render('employees/edit', [
+            'employee' => $employee->load('user'),
+            'departments' => Department::orderBy('name')->get(['id', 'name']),
+            'positions' => Position::orderBy('name')->get(['id', 'name']),
+            'shifts' => Shift::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+        ]);
+    }
+
+    public function update(UpdateEmployeeRequest $request, Employee $employee): RedirectResponse
+    {
+        $validated = $request->validated();
+        $validated['annual_leave_quota'] = $request->filled('annual_leave_quota')
+            ? $request->integer('annual_leave_quota')
+            : $employee->annual_leave_quota;
+
+        $employee->fill($validated);
+
+        if ($employee->isDirty('email') && $employee->user) {
+            $employee->user->update(['email' => $request->email]);
+        }
+
+        if ($employee->isDirty('name') && $employee->user) {
+            $employee->user->update(['name' => $request->name]);
+        }
+
+        if ($employee->user) {
+            $employee->user->update(['is_admin' => $request->boolean('is_admin')]);
+        }
+
+        $employee->save();
+
+        return to_route('employees.index');
+    }
+
+    public function destroy(Employee $employee): RedirectResponse
+    {
+        $employee->delete();
+
+        return to_route('employees.index');
+    }
+
+    public function resetPassword(Employee $employee): RedirectResponse
+    {
+        $plainPassword = Str::password(12, symbols: false);
+
+        $employee->user->update([
+            'password' => Hash::make($plainPassword),
+        ]);
+
+        return back()->with('generated_password', $plainPassword);
+    }
+}
