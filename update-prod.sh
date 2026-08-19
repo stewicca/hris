@@ -171,35 +171,19 @@ fi
 #
 # The app entrypoint runs `migrate --force` on start, so the restart below can
 # change the schema. Take the dump before that happens, not after.
+#
+# dump-db.sh owns the dump, the integrity checks and the retention policy, and
+# prints the resulting path on stdout. These dumps still only exist on this
+# box; pull them to a laptop with ./pull-backups.sh.
 # -----------------------------------------------------------------------------
+backup=""
 if [[ "$DO_BACKUP" -eq 1 ]]; then
     if dc ps --status running --services 2>/dev/null | grep -qx db; then
-        mkdir -p "$BACKUP_DIR"
-        stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-        backup="$BACKUP_DIR/hris-${stamp}.sql.gz"
+        [[ -x ./dump-db.sh ]] || die "./dump-db.sh is missing or not executable"
 
-        say "Dumping the database to $backup ..."
-        root_pass="$(env_value DB_ROOT_PASSWORD)"
-        db_name="$(env_value DB_DATABASE)"
-        [[ -n "$root_pass" && -n "$db_name" ]] || die "DB_ROOT_PASSWORD or DB_DATABASE missing from $ENV_FILE"
-
-        if ! dc exec -T db mysqldump \
-                --user=root --password="$root_pass" \
-                --single-transaction --routines --triggers --no-tablespaces \
-                "$db_name" | gzip > "$backup"; then
-            rm -f "$backup"
+        if ! backup="$(./dump-db.sh --dir "$BACKUP_DIR" --keep "$BACKUP_KEEP")"; then
             die "database dump failed — refusing to update on top of an unbacked-up database. Use --no-backup to override."
         fi
-
-        [[ -s "$backup" ]] || { rm -f "$backup"; die "database dump is empty — aborting."; }
-        say "Backup written: $backup ($(du -h "$backup" | cut -f1))"
-
-        # Retention, because the disk on this box is small.
-        # shellcheck disable=SC2012  # filenames are generated above; no spaces or newlines possible
-        ls -1t "$BACKUP_DIR"/hris-*.sql.gz 2>/dev/null | tail -n "+$((BACKUP_KEEP + 1))" | while read -r old; do
-            say "Pruning old backup $old"
-            rm -f "$old"
-        done
     else
         warn "The db service is not running; skipping the backup."
     fi

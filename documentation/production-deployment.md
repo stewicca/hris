@@ -303,24 +303,76 @@ gunzip -c backups/hris-<timestamp>.sql.gz | docker compose --env-file .env.prod 
 
 ### Backups
 
-`update-prod.sh` dumps the database before every update and keeps the last
-seven in `backups/`. That covers deploys, not disasters — **those dumps live on
-the same disk as the database they protect.** Copy them off the server:
+Two scripts, split by where a dump is useful:
+
+| Script | Runs on | Does |
+| --- | --- | --- |
+| `dump-db.sh` | the server | dumps the database to `backups/`, verifies it, prunes old ones |
+| `pull-backups.sh` | your laptop | copies those dumps off the server and verifies the copies |
+
+`update-prod.sh` calls `dump-db.sh` before every update and keeps the last
+seven. That covers deploys, not disasters — **those dumps live on the same disk
+as the database they protect**, so the second script is the one that makes them
+a backup.
+
+On the server:
 
 ```bash
-rsync -avz <server>:~/hris/backups/ ./hris-backups/
+ssh <server>
+cd hris
+./dump-db.sh              # -> backups/hris-<timestamp>.sql.gz + .sha256
+./dump-db.sh --keep 30    # retention; default is 7
 ```
 
-A manual dump:
+The dump is taken with `--single-transaction`, so the site stays writable. It
+is rejected and deleted unless the gzip stream is intact and mysqldump wrote
+its `-- Dump completed` trailer, and a `.sha256` sidecar is written next to it.
+
+From your laptop:
 
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml \
-    exec -T db mysqldump -u root -p<DB_ROOT_PASSWORD> \
-    --single-transaction --routines --triggers --no-tablespaces hris \
-    | gzip > backup.sql.gz
+export HRIS_SERVER=<server>          # or pass it as an argument
+
+./pull-backups.sh                    # pull whatever is on the server now
+./pull-backups.sh --dump             # dump on the server first, then pull
+./pull-backups.sh --keep 30          # prune the local archive past 30 copies
+./pull-backups.sh --verify-all       # re-verify every local copy
 ```
 
-Scheduled off-site backups are not set up yet.
+Dumps land in `~/hris-backups`, **outside this checkout on purpose**. A dump
+holds every employee record and password hash in the production database, so it
+must not sit in a working tree where a stray `git add -A` can pick it up — which
+is also why there is no `.gitignore` entry for it, an ignore rule only hides the
+file, it does not make keeping it there safe. Override the location with
+`--dest` or `HRIS_BACKUP_DEST`, and keep it outside the repo:
+
+```bash
+./pull-backups.sh --dest /mnt/archive <server>     # good
+./pull-backups.sh --dest ./backups <server>        # don't: inside the checkout
+```
+
+Store the archive on an encrypted disk if you have one; treat it as a copy of
+production, because it is one.
+
+Transfers are resumable and skip names already present, so re-running over a
+slow link is cheap; every new copy is checked against its sidecar hash. If a
+copy fails verification, re-run with `--refetch`: it compares by content and
+overwrites the bad file, no manual delete needed. Nothing is ever
+deleted on the server — retention there is `dump-db.sh --keep`.
+
+Restoring is the inverse, and **wipes the target database**:
+
+```bash
+gunzip -c ~/hris-backups/hris-<timestamp>.sql.gz | docker compose --env-file .env.prod \
+    -f docker-compose.prod.yml exec -T db mysql -u root -p<DB_ROOT_PASSWORD> hris
+```
+
+Scheduled off-site backups are not set up yet; the laptop-side pull is manual.
+A cron entry on a machine that is not the server is the smallest next step:
+
+```cron
+30 2 * * * cd ~/hris && ./pull-backups.sh --dump --keep 30 <server> >> ~/hris-backup.log 2>&1
+```
 
 ### Logs
 
