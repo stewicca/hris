@@ -92,7 +92,7 @@ class EmployeeController extends Controller
             ->first();
 
         $monthlyRecap = $employee->attendances()
-            ->where('date', '>=', now()->subMonths(11)->startOfMonth())
+            ->where('date', '>=', now()->startOfMonth()->subMonths(11))
             ->orderBy('date', 'desc')
             ->get()
             ->groupBy(fn ($a) => $a->date->format('Y-m'))

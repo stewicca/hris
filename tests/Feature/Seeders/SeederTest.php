@@ -130,6 +130,10 @@ describe('demo seeders', function () {
     });
 
     it('still seeds demo data outside production', function () {
+        // Month end: seeding walks back three months of payslips, which used
+        // to collide on the unique [employee_id, period] index.
+        $this->travelTo('2026-08-31 09:00:00');
+
         (new DatabaseSeeder)->setContainer(app())->run();
 
         expect(User::where('username', 'budi')->exists())->toBeTrue()

@@ -22,6 +22,11 @@ function payslipPayload(array $override = []): array
 }
 
 it('lets an admin create a payslip for an employee', function () {
+    // Pinned to a 31st: the period is a 30-day month, so any day PHP borrows
+    // from "today" does not exist in it. Without the pin this passes on most
+    // days of the year and the overflow goes unnoticed until month end.
+    $this->travelTo('2026-08-31 09:00:00');
+
     $this->actingAs($this->admin)
         ->post(route('employees.salaries.store', $this->employee), payslipPayload())
         ->assertRedirect();
@@ -35,6 +40,8 @@ it('lets an admin create a payslip for an employee', function () {
 });
 
 it('rejects a duplicate period for the same employee', function () {
+    $this->travelTo('2026-08-31 09:00:00');
+
     Salary::factory()->create([
         'employee_id' => $this->employee->id,
         'period' => '2026-06-01',

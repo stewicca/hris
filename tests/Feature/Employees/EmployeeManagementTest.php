@@ -231,6 +231,26 @@ test('employee show page returns monthly recap for last 12 months', function () 
         );
 });
 
+test('employee show page keeps the oldest recap month when viewed on a month end', function () {
+    // Viewed on the 31st, the 11-months-back cutoff used to overflow into the
+    // month after the one it should reach, silently dropping the oldest month
+    // from the recap. The existing recap test builds its fixtures with
+    // subMonthsNoOverflow, so it never sees this.
+    $this->travelTo('2026-08-31 09:00:00');
+
+    $employee = Employee::factory()->create();
+
+    Attendance::factory()->create([
+        'employee_id' => $employee->id,
+        'status' => 'present',
+        'date' => '2025-09-15',
+    ]);
+
+    $this->get(route('employees.show', $employee))
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page->has('monthlyRecap', 1));
+});
+
 test('employee attendance export returns csv download', function () {
     $employee = Employee::factory()->create();
 

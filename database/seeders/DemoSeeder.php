@@ -100,7 +100,7 @@ class DemoSeeder extends Seeder
 
             $factory->create([
                 'employee_id' => $employee->id,
-                'period' => today()->subMonths($monthsAgo)->startOfMonth(),
+                'period' => today()->startOfMonth()->subMonths($monthsAgo),
                 'components' => SalaryFactory::standardComponents($base),
             ]);
         }

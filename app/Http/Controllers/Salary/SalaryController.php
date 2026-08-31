@@ -36,7 +36,10 @@ class SalaryController extends Controller
     public function store(StoreSalaryRequest $request, Employee $employee): RedirectResponse
     {
         $salary = $employee->salaries()->create([
-            'period' => Carbon::createFromFormat('Y-m', $request->period)->startOfMonth(),
+            // '!' zeroes every field the format does not carry. Without it PHP
+            // fills the day from today, so a payslip filed on the 31st for a
+            // 30-day month silently lands in the month after the requested one.
+            'period' => Carbon::createFromFormat('!Y-m', $request->period),
             'components' => $request->components,
         ]);
 

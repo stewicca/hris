@@ -26,7 +26,9 @@ class StoreSalaryRequest extends FormRequest
                 'required',
                 'date_format:Y-m',
                 function (string $attribute, string $value, \Closure $fail) use ($employeeId): void {
-                    $period = Carbon::createFromFormat('Y-m', $value);
+                    // '!' pins the day to the 1st; without it the day comes
+                    // from today and the lookup checks the wrong month.
+                    $period = Carbon::createFromFormat('!Y-m', $value);
 
                     $exists = Salary::where('employee_id', $employeeId)
                         ->whereYear('period', $period->year)
