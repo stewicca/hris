@@ -49,7 +49,8 @@ This project has domain-specific skills available. You MUST activate the relevan
 ## Database Migrations
 
 - **Filename numbering:** Migrations use a sequential `0001_01_01_00000X` prefix (e.g. `0001_01_01_000016_...`). Never use the auto-generated `YYYY_MM_DD_HHMMSS_` timestamp form. Before creating a migration, check the highest existing number and use the next one.
-- **Add-column migrations:** While the application is still in development (before a released production database exists), do NOT create separate `add_xxx_to_yyy_table` migrations. Fold new columns directly into the table's original `create` migration by editing it. Separate alter-migrations are only created once there is a production database that cannot be rebuilt with `migrate:fresh`.
+- **Add-column migrations:** A production database has existed since 2026-08-19, so this rule has flipped. Never edit a `create` migration that production has already run — Laravel will not re-run it, and the change silently never reaches production. Write a separate alter-migration with the next sequential number instead. Guard each step (`Schema::hasColumn`, and see `0001_01_01_000017` for how the status enum is checked per driver) so the file is a no-op against a database built from the create migrations, which is what a fresh install and CI both are.
+- **Verify a migration against MySQL, not only SQLite.** Production runs MySQL 8.4 while the tests run SQLite, and the two disagree on exactly the things migrations touch — enums above all. The recipe is a two-phase simulation: a `git worktree` at the deployed commit migrated into one MySQL database, the new migrations applied on top, then `mysqldump --no-data` compared against a database migrated fresh. They should differ by nothing but declaration order.
 
 ## Verification Scripts
 
