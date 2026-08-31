@@ -102,4 +102,59 @@ class AttendanceSettings
             'radius_meters' => (float) ($stored['radius_meters'] ?? self::DEFAULT_RADIUS_METERS),
         ];
     }
+
+    /**
+     * The schedule that applied to an employee on a date: their shift when
+     * shift mode is on and one is assigned, otherwise the global office hours
+     * and break window.
+     *
+     * This is the reference clock every attendance-driven salary deduction is
+     * measured against, which is what lets {@see PayrollDeductionSettings} hold
+     * one ladder of tiers instead of one per shift.
+     *
+     * @return array{check_in: string, check_out: string, late_threshold: string, grace_minutes: int, break_enabled: bool, break_start: string|null, break_end: string|null, shift: Shift|null}
+     */
+    public static function scheduleFor(Employee $employee, CarbonInterface $date): array
+    {
+        $shift = self::resolveShift($employee, $date);
+        $breakFeature = FeatureSettings::breakEnabled();
+
+        if ($shift) {
+            return [
+                'check_in' => self::asClockTime($shift->check_in),
+                'check_out' => self::asClockTime($shift->check_out),
+                'late_threshold' => self::asClockTime($shift->late_threshold),
+                'grace_minutes' => (int) $shift->grace_minutes,
+                'break_enabled' => $breakFeature && $shift->break_enabled,
+                'break_start' => $shift->break_start ? self::asClockTime($shift->break_start) : null,
+                'break_end' => $shift->break_end ? self::asClockTime($shift->break_end) : null,
+                'shift' => $shift,
+            ];
+        }
+
+        $hours = self::officeHours();
+        $break = self::breakWindow();
+
+        return [
+            'check_in' => self::asClockTime($hours['check_in']),
+            'check_out' => self::asClockTime($hours['check_out']),
+            'late_threshold' => self::asClockTime($hours['late_threshold']),
+            // Grace is a shift-only concept; the global late threshold already
+            // carries whatever tolerance the office wanted.
+            'grace_minutes' => 0,
+            'break_enabled' => $breakFeature,
+            'break_start' => self::asClockTime($break['break_start']),
+            'break_end' => self::asClockTime($break['break_end']),
+            'shift' => null,
+        ];
+    }
+
+    /**
+     * Normalize a stored time to H:i. Shift columns come back as "08:00:00"
+     * while the settings store holds "08:00"; callers should not have to care.
+     */
+    private static function asClockTime(string $value): string
+    {
+        return substr($value, 0, 5);
+    }
 }

@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Employee;
+use App\Models\EmployeeSchedule;
 use App\Models\Setting;
+use App\Models\Shift;
 use App\Models\User;
 use App\Support\AttendanceSettings;
 
@@ -155,4 +158,77 @@ it('keeps the stored radius while the geofence is disabled', function () {
 
     expect($location['latitude'])->toBeNull()
         ->and($location['radius_meters'])->toBe(250.0);
+});
+
+// --- schedule resolution (the clock deductions are measured against) ---
+
+it('resolves the global office hours when shift mode is off', function () {
+    $employee = Employee::factory()->create();
+
+    $schedule = AttendanceSettings::scheduleFor($employee, today());
+
+    expect($schedule['check_in'])->toBe('08:00')
+        ->and($schedule['check_out'])->toBe('17:00')
+        ->and($schedule['late_threshold'])->toBe('08:05')
+        ->and($schedule['grace_minutes'])->toBe(0)
+        ->and($schedule['shift'])->toBeNull();
+});
+
+it('resolves the assigned shift when shift mode is on', function () {
+    Setting::set('attendance_shift_enabled', true);
+
+    $shift = Shift::factory()->create([
+        'check_in' => '22:00:00',
+        'check_out' => '06:00:00',
+        'late_threshold' => '22:10:00',
+        'grace_minutes' => 5,
+    ]);
+    $employee = Employee::factory()->create(['shift_id' => $shift->id]);
+
+    $schedule = AttendanceSettings::scheduleFor($employee, today());
+
+    // Times arrive as H:i:s from the shift columns and H:i from the settings
+    // store; callers get one shape either way.
+    expect($schedule['check_in'])->toBe('22:00')
+        ->and($schedule['check_out'])->toBe('06:00')
+        ->and($schedule['late_threshold'])->toBe('22:10')
+        ->and($schedule['grace_minutes'])->toBe(5)
+        ->and($schedule['shift']->id)->toBe($shift->id);
+});
+
+it('ignores the assigned shift while shift mode is off', function () {
+    $shift = Shift::factory()->create(['check_in' => '22:00:00']);
+    $employee = Employee::factory()->create(['shift_id' => $shift->id]);
+
+    expect(AttendanceSettings::scheduleFor($employee, today())['check_in'])->toBe('08:00');
+});
+
+it('prefers a per-date schedule over the default shift', function () {
+    Setting::set('attendance_shift_enabled', true);
+
+    $defaultShift = Shift::factory()->create(['check_in' => '08:00:00']);
+    $eveningShift = Shift::factory()->create(['check_in' => '14:00:00', 'check_out' => '22:00:00']);
+
+    $employee = Employee::factory()->create(['shift_id' => $defaultShift->id]);
+    EmployeeSchedule::factory()->create([
+        'employee_id' => $employee->id,
+        'shift_id' => $eveningShift->id,
+        'date' => today()->toDateString(),
+    ]);
+
+    expect(AttendanceSettings::scheduleFor($employee, today())['check_in'])->toBe('14:00');
+});
+
+it('reports the break window only while break tracking is enabled', function () {
+    $employee = Employee::factory()->create();
+
+    expect(AttendanceSettings::scheduleFor($employee, today())['break_enabled'])->toBeFalse();
+
+    Setting::set('attendance_break_enabled', true);
+
+    $schedule = AttendanceSettings::scheduleFor($employee, today());
+
+    expect($schedule['break_enabled'])->toBeTrue()
+        ->and($schedule['break_start'])->toBe('12:00')
+        ->and($schedule['break_end'])->toBe('13:00');
 });
