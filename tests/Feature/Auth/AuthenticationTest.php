@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Laravel\Fortify\Features;
 
 test('login screen can be rendered', function () {
@@ -14,6 +15,18 @@ test('users can authenticate using the login screen', function () {
 
     $response = $this->post(route('login.store'), [
         'username' => $user->username,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('dashboard', absolute: false));
+});
+
+test('users can authenticate using their email address', function () {
+    $user = User::factory()->create();
+
+    $response = $this->post(route('login.store'), [
+        'username' => $user->email,
         'password' => 'password',
     ]);
 
@@ -83,4 +96,22 @@ test('users are rate limited', function () {
     ]);
 
     $response->assertTooManyRequests();
+});
+
+test('login attempts are never written to the log', function () {
+    $user = User::factory()->create();
+
+    Log::spy();
+
+    // The three paths the custom authenticateUsing callback distinguishes
+    // between. None of them may leave the identifier, the password, or the
+    // fact that an account exists behind in storage/logs.
+    $this->post(route('login.store'), ['username' => 'nobody', 'password' => 'password']);
+    $this->post(route('login.store'), ['username' => $user->username, 'password' => 'wrong-password']);
+    $this->post(route('login.store'), ['username' => $user->username, 'password' => 'password']);
+
+    $this->assertAuthenticated();
+
+    Log::shouldNotHaveReceived('info');
+    Log::shouldNotHaveReceived('warning');
 });

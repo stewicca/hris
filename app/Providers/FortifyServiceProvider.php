@@ -8,7 +8,6 @@ use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -39,38 +38,28 @@ class FortifyServiceProvider extends ServiceProvider
 
     /**
      * Configure Fortify custom user authentication.
+     *
+     * The single login field accepts either an email address or a username,
+     * which Fortify's one-column default cannot express — hence the custom
+     * resolver.
+     *
+     * Nothing in here is logged, deliberately. The attempted identifier and
+     * whether it resolved to an account are enough to enumerate the user list
+     * out of storage/logs, and log files are a far softer target than the
+     * database they describe.
      */
     private function configureAuthentication(): void
     {
-        Fortify::authenticateUsing(function (Request $request) {
-            $loginInput = $request->input(Fortify::username());
-            $password = $request->input('password');
+        Fortify::authenticateUsing(function (Request $request): ?User {
+            $login = (string) $request->input(Fortify::username());
 
-            Log::info('Fortify Login Attempt', [
-                'login_input' => $loginInput,
-                'username_field' => Fortify::username(),
-                'has_password' => ! empty($password),
-            ]);
-
-            $user = User::where('email', $loginInput)
-                ->orWhere('username', $loginInput)
+            $user = User::query()
+                ->where('email', $login)
+                ->orWhere('username', $login)
                 ->first();
 
-            if ($user) {
-                $check = Hash::check($password, $user->password);
-                Log::info('User found in Fortify', [
-                    'user_id' => $user->id,
-                    'user_email' => $user->email,
-                    'user_username' => $user->username,
-                    'password_check' => $check,
-                ]);
-                if ($check) {
-                    return $user;
-                }
-            } else {
-                Log::warning('User NOT found in Fortify', [
-                    'input' => $loginInput,
-                ]);
+            if ($user && Hash::check((string) $request->input('password'), $user->password)) {
+                return $user;
             }
 
             return null;
