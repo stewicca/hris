@@ -116,7 +116,22 @@ class AttendanceSettings
      */
     public static function scheduleFor(Employee $employee, CarbonInterface $date): array
     {
-        $shift = self::resolveShift($employee, $date);
+        return self::scheduleFromShift(self::resolveShift($employee, $date));
+    }
+
+    /**
+     * The same schedule, resolved from an already-known shift instead of from
+     * an employee and a date.
+     *
+     * Attendance rows snapshot the shift that applied on the day, so anything
+     * grading a past record — a salary deduction above all — has to be able to
+     * read the schedule off that snapshot rather than off whichever shift the
+     * employee happens to be assigned today.
+     *
+     * @return array{check_in: string, check_out: string, late_threshold: string, grace_minutes: int, break_enabled: bool, break_start: string|null, break_end: string|null, shift: Shift|null}
+     */
+    public static function scheduleFromShift(?Shift $shift): array
+    {
         $breakFeature = FeatureSettings::breakEnabled();
 
         if ($shift) {

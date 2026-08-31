@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Employee;
 use App\Models\Setting;
+use App\Models\Shift;
 use Carbon\CarbonInterface;
 
 /**
@@ -123,8 +124,22 @@ class PayrollDeductionSettings
      */
     public static function forEmployee(Employee $employee, CarbonInterface $date): array
     {
-        return AttendanceSettings::resolveShift($employee, $date)?->deductionRules()
-            ?? self::globalRules();
+        return self::forShift(AttendanceSettings::resolveShift($employee, $date));
+    }
+
+    /**
+     * The rule set that applies to an already-resolved shift, or the
+     * installation-wide set when there is none.
+     *
+     * Attendance rows snapshot the shift that applied on the day, so pricing a
+     * past record starts from that snapshot rather than from a fresh resolve —
+     * reassigning somebody's shift must not silently reprice last month.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function forShift(?Shift $shift): array
+    {
+        return $shift?->deductionRules() ?? self::globalRules();
     }
 
     /**
@@ -149,7 +164,9 @@ class PayrollDeductionSettings
     }
 
     /**
-     * Rupiah to deduct for a break that ran `$minutesOver` past its window.
+     * Rupiah to deduct for a break that ran `$minutesOver` longer than the
+     * schedule allots. It is the length that is graded, not the clock: an
+     * employee who starts late and still takes their hour has overrun nothing.
      *
      * @param  array<string, mixed>  $rules
      */

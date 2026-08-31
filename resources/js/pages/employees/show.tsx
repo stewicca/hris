@@ -16,7 +16,7 @@ import {
     Trash2,
     UserRound,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     store as enrollFace,
     destroy as unenrollFace,
@@ -129,9 +129,11 @@ const DEFAULT_COMPONENTS: SalaryComponent[] = [
 function SalarySection({
     employee,
     salaries,
+    recap,
 }: {
     employee: Employee;
     salaries: Salary[];
+    recap: MonthlyAttendance[];
 }) {
     const [showForm, setShowForm] = useState(false);
     const form = useForm<{ period: string; components: SalaryComponent[] }>({
@@ -139,10 +141,29 @@ function SalarySection({
         components: DEFAULT_COMPONENTS,
     });
 
-    const net = form.data.components.reduce(
-        (sum, c) => sum + (c.type === 'income' ? c.amount : -c.amount),
-        0,
+    const deductionByPeriod = useMemo(
+        () =>
+            new Map(
+                recap.map((row) => [
+                    `${row.year}-${String(row.month).padStart(2, '0')}`,
+                    row.deduction,
+                ]),
+            ),
+        [recap],
     );
+
+    /**
+     * What the server will add for this period. Undefined means the recap does
+     * not reach that far back, or there is no attendance to price — either way
+     * the form promises a figure rather than inventing a zero.
+     */
+    const attendanceDeduction = deductionByPeriod.get(form.data.period);
+
+    const net =
+        form.data.components.reduce(
+            (sum, c) => sum + (c.type === 'income' ? c.amount : -c.amount),
+            0,
+        ) - (attendanceDeduction ?? 0);
 
     const updateComponent = (i: number, patch: Partial<SalaryComponent>) => {
         form.setData(
@@ -232,6 +253,14 @@ function SalarySection({
                                 {form.errors.period}
                             </p>
                         )}
+
+                        <p className="text-xs text-muted-foreground">
+                            {attendanceDeduction === undefined
+                                ? 'Potongan kehadiran dihitung otomatis saat slip disimpan.'
+                                : attendanceDeduction > 0
+                                  ? `Potongan kehadiran ${formatRupiah(attendanceDeduction)} ditambahkan otomatis dan sudah dihitung di gaji bersih.`
+                                  : 'Tidak ada potongan kehadiran untuk periode ini.'}
+                        </p>
 
                         <div className="space-y-2">
                             {form.data.components.map((c, i) => (
@@ -455,6 +484,9 @@ function MonthlyRecapTable({ recap }: { recap: MonthlyAttendance[] }) {
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground">
                             Izin/Sakit
                         </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                            Potongan
+                        </th>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground">
                             Total
                         </th>
@@ -491,6 +523,17 @@ function MonthlyRecapTable({ recap }: { recap: MonthlyAttendance[] }) {
                                 </td>
                                 <td className="px-4 py-3 text-center text-sky-600 dark:text-sky-400">
                                     {row.excused}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                    {row.deduction > 0 ? (
+                                        <span className="text-destructive">
+                                            {formatRupiah(row.deduction)}
+                                        </span>
+                                    ) : (
+                                        <span className="text-muted-foreground">
+                                            —
+                                        </span>
+                                    )}
                                 </td>
                                 <td className="px-4 py-3 text-center text-muted-foreground">
                                     {row.total}
@@ -1062,7 +1105,11 @@ export default function EmployeesShow({
 
                 {/* Salary */}
                 {payrollEnabled && (
-                    <SalarySection employee={employee} salaries={salaries} />
+                    <SalarySection
+                        employee={employee}
+                        salaries={salaries}
+                        recap={monthlyRecap}
+                    />
                 )}
 
                 {/* Monthly Recap */}

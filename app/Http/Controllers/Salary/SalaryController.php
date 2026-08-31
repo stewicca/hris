@@ -7,6 +7,7 @@ use App\Http\Requests\Salaries\StoreSalaryRequest;
 use App\Models\Employee;
 use App\Models\Salary;
 use App\Notifications\EmployeeNotification;
+use App\Support\AttendanceDeduction;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,14 +34,27 @@ class SalaryController extends Controller
         return view('salaries.print', ['salary' => $salary]);
     }
 
+    /**
+     * Draft a payslip, adding whatever that month's attendance cost.
+     *
+     * The deduction lines are computed here rather than taken from the form:
+     * they are the one part of a payslip nobody types, and reading them off the
+     * request would let a hand-edited amount decide its own penalty. The form
+     * shows the same figure ahead of time so the total is never a surprise.
+     */
     public function store(StoreSalaryRequest $request, Employee $employee): RedirectResponse
     {
+        // '!' zeroes every field the format does not carry. Without it PHP
+        // fills the day from today, so a payslip filed on the 31st for a
+        // 30-day month silently lands in the month after the requested one.
+        $period = Carbon::createFromFormat('!Y-m', $request->period);
+
         $salary = $employee->salaries()->create([
-            // '!' zeroes every field the format does not carry. Without it PHP
-            // fills the day from today, so a payslip filed on the 31st for a
-            // 30-day month silently lands in the month after the requested one.
-            'period' => Carbon::createFromFormat('!Y-m', $request->period),
-            'components' => $request->components,
+            'period' => $period,
+            'components' => [
+                ...$request->components,
+                ...AttendanceDeduction::forMonth($employee, $period)->salaryComponents(),
+            ],
         ]);
 
         $employee->user?->notify(new EmployeeNotification(

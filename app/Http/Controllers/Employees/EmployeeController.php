@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Shift;
 use App\Models\User;
+use App\Support\AttendanceDeduction;
 use App\Support\UsernameGenerator;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -127,6 +128,9 @@ class EmployeeController extends Controller
 
         $monthlyRecap = $employee->attendances()
             ->where('date', '>=', now()->startOfMonth()->subMonths(11))
+            // Each row is priced against the shift it snapshotted, so loading
+            // them here keeps a year of recap off one query per day.
+            ->with('shift')
             ->orderBy('date', 'desc')
             ->get()
             ->groupBy(fn ($a) => $a->date->format('Y-m'))
@@ -137,6 +141,9 @@ class EmployeeController extends Controller
                 'late' => $group->where('status', 'late')->count(),
                 'absent' => $group->where('status', 'absent')->count(),
                 'excused' => $group->whereIn('status', Attendance::EXCUSED_STATUSES)->count(),
+                'deduction' => $group->sum(
+                    fn (Attendance $a) => AttendanceDeduction::for($a->setRelation('employee', $employee))->total,
+                ),
                 'total' => $group->count(),
             ])
             ->values();
@@ -163,7 +170,7 @@ class EmployeeController extends Controller
 
     public function attendanceExport(Employee $employee): StreamedResponse
     {
-        $attendances = $employee->attendances()->orderBy('date', 'desc')->get();
+        $attendances = $employee->attendances()->with('shift')->orderBy('date', 'desc')->get();
 
         $filename = 'kehadiran-'.Str::slug($employee->name).'-'.now()->format('Ymd').'.csv';
 
@@ -172,9 +179,11 @@ class EmployeeController extends Controller
 
             fwrite($handle, "\xEF\xBB\xBF");
 
-            fputcsv($handle, ['Nama', 'No. Karyawan', 'Tanggal', 'Masuk', 'Pulang', 'Istirahat Mulai', 'Istirahat Selesai', 'Status']);
+            fputcsv($handle, ['Nama', 'No. Karyawan', 'Tanggal', 'Masuk', 'Pulang', 'Istirahat Mulai', 'Istirahat Selesai', 'Status', 'Potongan', 'Rincian Potongan']);
 
             foreach ($attendances as $a) {
+                $deduction = AttendanceDeduction::for($a->setRelation('employee', $employee));
+
                 fputcsv($handle, [
                     $employee->name,
                     $employee->employee_number,
@@ -191,6 +200,10 @@ class EmployeeController extends Controller
                         'permit' => 'Izin',
                         default => $a->status,
                     },
+                    // A bare number rather than the '-' the time columns use,
+                    // so the column still sums in a spreadsheet.
+                    $deduction->total,
+                    $deduction->reason() ?: '-',
                 ]);
             }
 

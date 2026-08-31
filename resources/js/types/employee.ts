@@ -60,7 +60,12 @@ export type LeaveSummary = {
 };
 
 /** A status stored on an attendance record. */
-export type AttendanceStatus = 'present' | 'late' | 'absent' | 'sick' | 'permit';
+export type AttendanceStatus =
+    | 'present'
+    | 'late'
+    | 'absent'
+    | 'sick'
+    | 'permit';
 
 /**
  * A row on the daily attendance board. `leave` and `holiday` are derived for
@@ -124,6 +129,8 @@ export type MonthlyAttendance = {
     late: number;
     absent: number;
     excused: number;
+    /** Rupiah this month's attendance cost under the deduction rules. */
+    deduction: number;
     total: number;
 };
 

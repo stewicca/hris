@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\Leave;
+use App\Support\AttendanceSettings;
 use App\Support\WorkCalendar;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -46,6 +47,10 @@ class MarkAbsentees extends Command
         foreach ($absentees as $employee) {
             $employee->attendances()->create([
                 'date' => $date->toDateString(),
+                // Snapshotted even though nobody worked it: an absence is
+                // priced against the shift it was an absence from, and the
+                // employee may be moved to another one before payroll runs.
+                'shift_id' => AttendanceSettings::resolveShift($employee, $date)?->id,
                 'status' => 'absent',
             ]);
         }
