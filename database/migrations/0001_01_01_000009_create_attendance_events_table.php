@@ -27,6 +27,11 @@ return new class extends Migration
             $table->string('photo_path')->nullable();
             $table->boolean('face_verified')->default(false);
             $table->string('notes')->nullable();
+
+            // Set when an admin wrote this event by hand. Such an event carries
+            // no GPS or photo, so the audit trail stays honest about which
+            // times were actually clocked and which were filled in later.
+            $table->foreignId('recorded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->index(['attendance_id', 'occurred_at']);

@@ -36,7 +36,25 @@ class Attendance extends Model
         'face_verified',
         'status',
         'notes',
+        'recorded_by',
     ];
+
+    /**
+     * Statuses an admin may record by hand. 'late' is deliberately absent: it
+     * is derived from the check-in time, never chosen, so a hand-written record
+     * can never disagree with its own clock.
+     *
+     * @var list<string>
+     */
+    public const array MANUAL_STATUSES = ['present', 'absent', 'sick', 'permit'];
+
+    /**
+     * Statuses that record an excused day off rather than time worked. A record
+     * in one of these carries no times at all.
+     *
+     * @var list<string>
+     */
+    public const array EXCUSED_STATUSES = ['sick', 'permit'];
 
     public function casts(): array
     {
@@ -69,11 +87,38 @@ class Attendance extends Model
     }
 
     /**
+     * The admin who recorded this day by hand, if anyone did.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function recordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    /**
      * @return HasMany<AttendanceEvent, $this>
      */
     public function events(): HasMany
     {
         return $this->hasMany(AttendanceEvent::class)->orderBy('occurred_at');
+    }
+
+    /**
+     * Whether every time on this record was written by an admin rather than
+     * clocked by the employee. Only such a record may be deleted outright: one
+     * that mixes a real check-in with a filled-in check-out still holds audit
+     * data nobody is allowed to throw away.
+     */
+    public function isFullyManual(): bool
+    {
+        if ($this->recorded_by === null) {
+            return false;
+        }
+
+        return $this->relationLoaded('events')
+            ? $this->events->whereNull('recorded_by')->isEmpty()
+            : $this->events()->whereNull('recorded_by')->doesntExist();
     }
 
     public function isCheckedIn(): bool

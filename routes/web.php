@@ -26,6 +26,8 @@ Route::middleware(['auth', EnsureUserIsAdmin::class])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+    Route::post('attendance', [AttendanceController::class, 'store'])->name('attendance.store');
+    Route::delete('attendance/{attendance}', [AttendanceController::class, 'destroy'])->name('attendance.destroy');
 
     Route::middleware(EnsureLeaveFeatureEnabled::class)->group(function () {
         Route::resource('leaves', LeaveController::class)->except(['edit', 'update'])->parameters(['leaves' => 'leave']);

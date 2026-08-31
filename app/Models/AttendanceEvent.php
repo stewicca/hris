@@ -23,6 +23,7 @@ class AttendanceEvent extends Model
         'photo_path',
         'face_verified',
         'notes',
+        'recorded_by',
     ];
 
     public function casts(): array

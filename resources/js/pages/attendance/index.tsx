@@ -1,5 +1,13 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
+import {
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
+    ClipboardList,
+    PenLine,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ManualAttendanceDialog } from '@/components/manual-attendance-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -15,6 +23,8 @@ const STATUS_LABEL: Record<AttendanceRecord['status'], string> = {
     present: 'Hadir',
     late: 'Terlambat',
     absent: 'Tidak Hadir',
+    sick: 'Sakit',
+    permit: 'Izin',
     leave: 'Cuti',
     holiday: 'Libur',
 };
@@ -26,6 +36,8 @@ const STATUS_VARIANT: Record<
     present: 'default',
     late: 'secondary',
     absent: 'destructive',
+    sick: 'outline',
+    permit: 'outline',
     leave: 'outline',
     holiday: 'outline',
 };
@@ -35,6 +47,8 @@ const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
     { value: 'present', label: 'Hadir' },
     { value: 'late', label: 'Terlambat' },
     { value: 'absent', label: 'Tidak Hadir' },
+    { value: 'sick', label: 'Sakit' },
+    { value: 'permit', label: 'Izin' },
     { value: 'leave', label: 'Cuti' },
 ];
 
@@ -104,14 +118,32 @@ export default function AttendanceIndex({
     isWorkingDay: boolean;
 }) {
     const isToday = filters.date === new Date().toISOString().slice(0, 10);
-    const { features } = usePage().props;
+    const { features, flash } = usePage().props;
     const breakEnabled = features?.break !== false;
+
+    const [editing, setEditing] = useState<AttendanceRecord | null>(null);
+    const [toast, setToast] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (flash?.success) {
+            setToast(flash.success);
+            const t = setTimeout(() => setToast(null), 3500);
+            return () => clearTimeout(t);
+        }
+    }, [flash?.success]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Kehadiran" />
 
             <div className="space-y-6 p-6">
+                {toast && (
+                    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-700 shadow-lg dark:text-green-400">
+                        <CheckCircle2 className="size-4" />
+                        {toast}
+                    </div>
+                )}
+
                 {/* Page Header */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
@@ -258,13 +290,16 @@ export default function AttendanceIndex({
                                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                                     Status
                                 </th>
+                                <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                                    Aksi
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
                             {records.length === 0 ? (
                                 <tr>
                                     <td
-                                        colSpan={breakEnabled ? 8 : 7}
+                                        colSpan={breakEnabled ? 9 : 8}
                                         className="px-4 py-10 text-center text-muted-foreground"
                                     >
                                         Tidak ada data untuk ditampilkan.
@@ -316,15 +351,39 @@ export default function AttendanceIndex({
                                             {formatDuration(record)}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <Badge
-                                                variant={
-                                                    STATUS_VARIANT[
-                                                        record.status
-                                                    ]
+                                            <div className="flex items-center gap-1.5">
+                                                <Badge
+                                                    variant={
+                                                        STATUS_VARIANT[
+                                                            record.status
+                                                        ]
+                                                    }
+                                                >
+                                                    {STATUS_LABEL[record.status]}
+                                                </Badge>
+                                                {record.recorded_manually && (
+                                                    <span
+                                                        title={
+                                                            record.notes
+                                                                ? `Dicatat admin — ${record.notes}`
+                                                                : 'Dicatat admin'
+                                                        }
+                                                    >
+                                                        <PenLine className="size-3.5 text-muted-foreground" />
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                    setEditing(record)
                                                 }
                                             >
-                                                {STATUS_LABEL[record.status]}
-                                            </Badge>
+                                                Absenkan
+                                            </Button>
                                         </td>
                                     </tr>
                                 ))
@@ -333,6 +392,16 @@ export default function AttendanceIndex({
                     </table>
                 </div>
             </div>
+
+            {editing && (
+                <ManualAttendanceDialog
+                    key={editing.employee_id}
+                    record={editing}
+                    date={filters.date}
+                    breakEnabled={breakEnabled}
+                    onClose={() => setEditing(null)}
+                />
+            )}
         </AppLayout>
     );
 }

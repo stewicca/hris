@@ -59,17 +59,28 @@ export type LeaveSummary = {
     remaining: number;
 };
 
+/** A status stored on an attendance record. */
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'sick' | 'permit';
+
+/**
+ * A row on the daily attendance board. `leave` and `holiday` are derived for
+ * employees with no record at all, so they appear here but are never stored.
+ */
 export type AttendanceRecord = {
     employee_id: number;
     employee_number: string;
     name: string;
     department: string | null;
     position: string | null;
+    attendance_id: number | null;
     check_in: string | null;
     check_out: string | null;
     break_start: string | null;
     break_end: string | null;
-    status: 'present' | 'late' | 'absent' | 'leave' | 'holiday';
+    notes: string | null;
+    recorded_manually: boolean;
+    can_delete: boolean;
+    status: AttendanceStatus | 'leave' | 'holiday';
 };
 
 export type Attendance = {
@@ -88,8 +99,9 @@ export type Attendance = {
     check_out_accuracy: number | null;
     shift_id: number | null;
     shift?: Shift | null;
-    status: 'present' | 'late' | 'absent';
+    status: AttendanceStatus;
     notes: string | null;
+    recorded_by: number | null;
     created_at: string;
     updated_at: string;
 };
@@ -98,6 +110,8 @@ export type AttendanceSummary = {
     present: number;
     late: number;
     absent: number;
+    /** Days marked sick or excused, which are absences nobody is faulted for. */
+    excused: number;
     leave: number;
     total: number;
     is_working_day: boolean;
@@ -109,6 +123,7 @@ export type MonthlyAttendance = {
     present: number;
     late: number;
     absent: number;
+    excused: number;
     total: number;
 };
 

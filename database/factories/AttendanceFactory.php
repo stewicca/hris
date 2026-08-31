@@ -39,6 +39,26 @@ class AttendanceFactory extends Factory
         return $this->state(['check_in' => '09:00:00', 'status' => 'late']);
     }
 
+    /**
+     * A day recorded by an admin as sick or excused: no times at all, and an
+     * explanation on the record.
+     */
+    public function excused(string $status = 'sick'): static
+    {
+        return $this->state([
+            'status' => $status,
+            'check_in' => null,
+            'check_out' => null,
+            'break_start' => null,
+            'break_end' => null,
+            'check_in_lat' => null,
+            'check_in_lng' => null,
+            'check_out_lat' => null,
+            'check_out_lng' => null,
+            'notes' => 'Dicatat admin',
+        ]);
+    }
+
     public function noCheckOut(): static
     {
         return $this->state(['check_out' => null, 'check_out_lat' => null, 'check_out_lng' => null]);

@@ -38,8 +38,13 @@ return new class extends Migration
             $table->string('check_out_photo_path')->nullable();
             $table->boolean('face_verified')->default(false);
 
-            $table->enum('status', ['present', 'late', 'absent'])->default('present');
+            $table->enum('status', ['present', 'late', 'absent', 'sick', 'permit'])->default('present');
             $table->string('notes')->nullable();
+
+            // Set when an admin recorded or corrected this day by hand instead
+            // of the employee clocking in. Null means the employee recorded it
+            // themselves through the portal or the kiosk.
+            $table->foreignId('recorded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->unique(['employee_id', 'date']);
