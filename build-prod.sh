@@ -33,6 +33,25 @@ cd "$(dirname "$0")"
 # resolving the npm workspaces, so raise it for the build.
 ULIMIT=(--ulimit nofile=65536:65536)
 
+# Docker on most machines, podman on others. Nothing in these builds needs
+# docker specifically, and vite.config.ts already probes for an engine the same
+# way, so build wherever the images can actually be built. Override with
+# CONTAINER_ENGINE when both are installed and the choice matters.
+ENGINE="${CONTAINER_ENGINE:-}"
+if [[ -z "$ENGINE" ]]; then
+    for candidate in docker podman; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            ENGINE="$candidate"
+            break
+        fi
+    done
+fi
+[[ -n "$ENGINE" ]] || {
+    echo "neither docker nor podman is installed; cannot build images" >&2
+    exit 69
+}
+echo "==> Using container engine: $ENGINE"
+
 PUSH_PREFIX=""
 DO_SAVE=0
 
@@ -54,25 +73,25 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "==> Building app image (PHP-FPM + supervisor)..."
-docker build "${ULIMIT[@]}" -f Dockerfile.prod --target app -t localhost/hris-app:prod .
+"$ENGINE" build "${ULIMIT[@]}" -f Dockerfile.prod --target app -t localhost/hris-app:prod .
 
 echo "==> Building nginx image (Laravel public + employee SPA)..."
-docker build "${ULIMIT[@]}" -f Dockerfile.prod --target nginx -t localhost/hris-nginx:prod .
+"$ENGINE" build "${ULIMIT[@]}" -f Dockerfile.prod --target nginx -t localhost/hris-nginx:prod .
 
 echo "==> Building face-recognition image..."
-docker build "${ULIMIT[@]}" -t localhost/hris-face-recognition:prod ./services/face-recognition
+"$ENGINE" build "${ULIMIT[@]}" -t localhost/hris-face-recognition:prod ./services/face-recognition
 
 if [[ -n "$PUSH_PREFIX" ]]; then
     for image in app nginx face-recognition; do
         echo "==> Pushing ${PUSH_PREFIX}-${image}:prod ..."
-        docker tag "localhost/hris-${image}:prod" "${PUSH_PREFIX}-${image}:prod"
-        docker push "${PUSH_PREFIX}-${image}:prod"
+        "$ENGINE" tag "localhost/hris-${image}:prod" "${PUSH_PREFIX}-${image}:prod"
+        "$ENGINE" push "${PUSH_PREFIX}-${image}:prod"
     done
 fi
 
 if [[ "$DO_SAVE" -eq 1 ]]; then
     echo "==> Saving images to hris-images.tar.gz ..."
-    docker save \
+    "$ENGINE" save \
         localhost/hris-app:prod \
         localhost/hris-nginx:prod \
         localhost/hris-face-recognition:prod | gzip > hris-images.tar.gz
