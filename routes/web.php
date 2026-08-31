@@ -38,6 +38,7 @@ Route::middleware(['auth', EnsureUserIsAdmin::class])->group(function () {
     Route::resource('employees', EmployeeController::class);
     Route::post('employees/{employee}/reset-password', [EmployeeController::class, 'resetPassword'])->name('employees.reset-password');
     Route::get('employees/{employee}/attendance/export', [EmployeeController::class, 'attendanceExport'])->name('employees.attendance.export');
+    Route::get('employees/attendance/recap', [EmployeeController::class, 'attendanceRecapExport'])->name('employees.attendance.recap');
 
     Route::middleware(EnsurePayrollFeatureEnabled::class)->group(function () {
         Route::post('employees/{employee}/salaries', [SalaryController::class, 'store'])->name('employees.salaries.store');

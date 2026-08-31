@@ -1,7 +1,17 @@
 import { Form, Link, router } from '@inertiajs/react';
-import { Copy, CopyCheck, Key, Pencil, PlusCircle, Trash2 } from 'lucide-react';
+import {
+    Copy,
+    CopyCheck,
+    Download,
+    Key,
+    Pencil,
+    PlusCircle,
+    Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
-import EmployeeController from '@/actions/App/Http/Controllers/Employees/EmployeeController';
+import EmployeeController, {
+    attendanceRecapExport,
+} from '@/actions/App/Http/Controllers/Employees/EmployeeController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +23,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { create, edit, index, show } from '@/routes/employees';
 import type { BreadcrumbItem, Employee, PaginatedEmployees } from '@/types';
@@ -152,11 +164,105 @@ function ResetPasswordDialog({ employee }: { employee: Employee }) {
     );
 }
 
+/** A local Y-m-d, as the date input wants it. `toISOString` would shift it. */
+function toDateInput(date: Date) {
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+}
+
+/**
+ * One row per employee for a span of dates, with what that span cost them.
+ * The per-employee export on the detail page covers the other question — which
+ * day somebody was late — so this one stays a recap.
+ */
+function RecapExportBar({ departments }: { departments: string[] }) {
+    const today = new Date();
+    const [start, setStart] = useState(
+        toDateInput(new Date(today.getFullYear(), today.getMonth(), 1)),
+    );
+    const [end, setEnd] = useState(toDateInput(today));
+    const [department, setDepartment] = useState('');
+
+    const invalid = !start || !end || end < start;
+
+    return (
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/30 p-4">
+            <div className="grid gap-2">
+                <Label htmlFor="recap-start">Dari tanggal</Label>
+                <Input
+                    id="recap-start"
+                    type="date"
+                    value={start}
+                    max={end}
+                    onChange={(e) => setStart(e.target.value)}
+                    className="w-44 bg-background"
+                />
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor="recap-end">Sampai tanggal</Label>
+                <Input
+                    id="recap-end"
+                    type="date"
+                    value={end}
+                    min={start}
+                    max={toDateInput(today)}
+                    onChange={(e) => setEnd(e.target.value)}
+                    className="w-44 bg-background"
+                />
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor="recap-department">Departemen</Label>
+                <select
+                    id="recap-department"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="h-9 w-48 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                    <option value="">Semua departemen</option>
+                    {departments.map((name) => (
+                        <option key={name} value={name}>
+                            {name}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            <Button
+                variant="outline"
+                disabled={invalid}
+                render={
+                    <a
+                        href={attendanceRecapExport.url({
+                            query: {
+                                start,
+                                end,
+                                ...(department ? { department } : {}),
+                            },
+                        })}
+                        download
+                    />
+                }
+            >
+                <Download className="size-4" />
+                Export Rekap
+            </Button>
+            <p className="w-full text-xs text-muted-foreground">
+                Satu baris per karyawan: jumlah hadir, terlambat, absen,
+                izin/sakit dan cuti, beserta rincian potongan gajinya.
+            </p>
+        </div>
+    );
+}
+
 export default function EmployeesIndex({
     employees,
+    departments,
     generatedPassword,
 }: {
     employees: PaginatedEmployees;
+    departments: string[];
     generatedPassword?: string | null;
 }) {
     return (
@@ -180,6 +286,8 @@ export default function EmployeesIndex({
                 {generatedPassword && (
                     <CopyPasswordBanner password={generatedPassword} />
                 )}
+
+                <RecapExportBar departments={departments} />
 
                 <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full text-sm">

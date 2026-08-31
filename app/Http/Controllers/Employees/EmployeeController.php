@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Employees;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Employees\AttendanceRecapRequest;
 use App\Http\Requests\Employees\StoreEmployeeRequest;
 use App\Http\Requests\Employees\UpdateEmployeeRequest;
 use App\Models\Attendance;
@@ -12,6 +13,7 @@ use App\Models\Position;
 use App\Models\Shift;
 use App\Models\User;
 use App\Support\AttendanceDeduction;
+use App\Support\AttendanceRecap;
 use App\Support\UsernameGenerator;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -38,6 +40,7 @@ class EmployeeController extends Controller
 
         return Inertia::render('employees/index', [
             'employees' => $employees,
+            'departments' => Department::orderBy('name')->pluck('name'),
             'generatedPassword' => session('generated_password'),
         ]);
     }
@@ -204,6 +207,56 @@ class EmployeeController extends Controller
                     // so the column still sums in a spreadsheet.
                     $deduction->total,
                     $deduction->reason() ?: '-',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * The roster-wide recap: one row per employee for a span of dates, with
+     * what that span cost them.
+     *
+     * The per-employee export above answers "which day was he late?"; this one
+     * answers "what do I cut from each person this month?", which is the
+     * question a payroll sheet actually asks.
+     */
+    public function attendanceRecapExport(AttendanceRecapRequest $request): StreamedResponse
+    {
+        $start = $request->date('start')->startOfDay();
+        $end = $request->date('end')->startOfDay();
+
+        $rows = AttendanceRecap::rows($start, $end, $request->input('department'));
+
+        $filename = 'rekap-kehadiran-'.$start->format('Ymd').'-'.$end->format('Ymd').'.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $handle = fopen('php://output', 'w');
+
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, AttendanceRecap::COLUMNS);
+
+            foreach ($rows as $row) {
+                fputcsv($handle, [
+                    $row['name'],
+                    $row['employee_number'],
+                    $row['department'] ?? '-',
+                    $row['position'] ?? '-',
+                    $row['working_days'],
+                    $row['present'],
+                    $row['late'],
+                    $row['absent'],
+                    $row['excused'],
+                    $row['leave'],
+                    // Bare numbers, so every money column still sums in a
+                    // spreadsheet.
+                    $row['late_amount'],
+                    $row['early_leave_amount'],
+                    $row['break_overrun_amount'],
+                    $row['absent_amount'],
+                    $row['total_deduction'],
                 ]);
             }
 

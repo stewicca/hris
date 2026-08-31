@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Shift;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 
 /**
  * Prices attendance against the deduction ladders that applied to it.
@@ -97,24 +98,41 @@ final class AttendanceDeduction
      */
     public static function forMonth(Employee $employee, CarbonInterface $month): self
     {
+        return self::forRange($employee, $month->copy()->startOfMonth(), $month->copy()->endOfMonth());
+    }
+
+    /**
+     * The same, over any span of dates. Both ends are inclusive.
+     */
+    public static function forRange(Employee $employee, CarbonInterface $start, CarbonInterface $end): self
+    {
+        return self::forRecords($employee, $employee->attendances()
+            ->whereBetween('date', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            // The snapshot shift decides both the schedule and the ladders, so
+            // loading it here keeps a whole span off one query per day.
+            ->with('shift')
+            ->get());
+    }
+
+    /**
+     * The same again, over records already in hand — which is how a recap
+     * across the whole roster prices everybody from a single query.
+     *
+     * @param  Collection<int, Attendance>  $attendances
+     */
+    public static function forRecords(Employee $employee, Collection $attendances): self
+    {
         $totals = [];
 
-        $employee->attendances()
-            ->whereYear('date', $month->year)
-            ->whereMonth('date', $month->month)
-            // The snapshot shift decides both the schedule and the ladders, so
-            // loading it here keeps a full month off one query per day.
-            ->with('shift')
-            ->get()
-            ->each(function (Attendance $attendance) use ($employee, &$totals): void {
-                foreach (self::for($attendance->setRelation('employee', $employee))->lines as $group => $line) {
-                    $totals[$group] ??= [null, 0];
-                    $totals[$group][0] = $line['minutes'] === null
-                        ? $totals[$group][0]
-                        : (int) $totals[$group][0] + $line['minutes'];
-                    $totals[$group][1] += $line['amount'];
-                }
-            });
+        foreach ($attendances as $attendance) {
+            foreach (self::for($attendance->setRelation('employee', $employee))->lines as $group => $line) {
+                $totals[$group] ??= [null, 0];
+                $totals[$group][0] = $line['minutes'] === null
+                    ? $totals[$group][0]
+                    : (int) $totals[$group][0] + $line['minutes'];
+                $totals[$group][1] += $line['amount'];
+            }
+        }
 
         return self::build($totals);
     }
@@ -122,6 +140,15 @@ final class AttendanceDeduction
     public function isEmpty(): bool
     {
         return $this->lines === [];
+    }
+
+    /**
+     * What one rule group cost, for a report that wants a column per group
+     * rather than a single total.
+     */
+    public function amountFor(string $group): int
+    {
+        return $this->lines[$group]['amount'] ?? 0;
     }
 
     /**
