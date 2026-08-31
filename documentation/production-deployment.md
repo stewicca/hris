@@ -257,6 +257,10 @@ The application is running but not yet usable. Log in at
       means password reset emails are never delivered.
 - [ ] **Confirm feature toggles** — leave, payroll, shifts, breaks and the kiosk
       are each switchable and hide their UI when off.
+- [ ] **Set the salary deduction rules** under *Potongan Gaji* if payroll is on.
+      Every rule ships off, and a shift can override the global ladders. Note
+      these are configuration only for now: drafting a payslip does not read
+      them yet, so no payslip changes when you save them.
 
 If you are deploying an attendance terminal, also:
 

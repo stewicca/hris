@@ -173,13 +173,67 @@ Two settings decide whether check-in succeeds, and neither lives in `.env`:
   stored in the `settings` table. Until an admin configures it, the geofence is
   inactive and check-in works from anywhere. That is usually what you want
   locally.
-- **Shifts** — employees reference a shift for their office hours, late
-  threshold and grace period. `php artisan db:seed` creates them via the demo
-  data; on a hand-built database, create one under *Shifts* first.
+- **Shifts** — a shift carries its own office hours, late threshold, grace
+  period and optional break window. `php artisan db:seed` creates them via the
+  demo data; on a hand-built database, create one under *Shifts* first.
+
+A shift is a **layer over** the office hours above, not a replacement for them.
+The schedule for one employee on one date resolves in three steps, stopping at
+the first hit:
+
+| Step | Source | Wins when |
+| --- | --- | --- |
+| 1 | `employee_schedules` | a row exists for that employee and date |
+| 2 | `employees.shift_id` | the employee has a default shift |
+| 3 | *Attendance Settings* | always — the floor |
+
+Switching **Mode Shift** off under *Pengaturan Fitur* skips steps 1 and 2
+entirely, even where the data exists. That is why the global hours stay editable
+while shifts are in use: anyone without a shift still lands on them.
+`AttendanceSettings::scheduleFor()` is the single resolver.
+
+Step 1 has no admin UI. The `employee_schedules` table, its model and
+`Employee::shiftForDate()` all work, but nothing writes to it yet — per-date
+rotation currently means inserting rows by hand.
 
 GPS integrity thresholds (`GPS_MAX_ACCURACY_METERS`, `GPS_MAX_AGE_SECONDS`) do
 live in `.env`. Raise them if a desktop browser's coarse location is being
 rejected during testing.
+
+### Salary deductions
+
+Attendance-driven deductions — arriving late, leaving early, overstaying a break
+and absence — are configured under *Potongan Gaji*. Nothing here lives in
+`.env`, and every rule ships off: a fresh installation deducts nothing.
+
+The first three are ladders of `{from_minutes, amount}` rungs, and only the
+deepest rung reached applies. With 15 → 15.000 and 30 → 40.000, forty-five
+minutes late costs 40.000, **not** 55.000. Absence is a flat amount per day;
+approved leave never reaches it, because `attendance:mark-absentees` skips
+employees whose leave covers the date, so an `absent` row means nobody accounted
+for the day at all.
+
+Rules resolve the same way schedules do, one level shorter:
+
+| Step | Source | Wins when |
+| --- | --- | --- |
+| 1 | `shifts.deduction_rules` | the shift resolved for that date overrides |
+| 2 | `settings.payroll_deductions` | everyone else, and everyone while shift mode is off |
+
+`null` in `shifts.deduction_rules` is the whole signal for "follow the global
+rules", so dropping an override clears the column rather than storing a disabled
+copy — otherwise that shift would silently freeze at the old values whenever the
+global ladders changed. `PayrollDeductionSettings::forEmployee()` resolves both
+levels; the minutes are counted against `scheduleFor()`, so a 22:00 shift is
+graded against 22:00 rather than the office's 08:00.
+
+The break rule is hidden wherever no break is ever recorded — the global break
+feature being off, or that shift's `break_enabled` being false — because there
+would be no overrun to measure.
+
+**Not yet wired into payroll.** The rules are stored, validated and resolvable,
+and `PayrollDeductionSettings` has the helpers to price them, but drafting a
+payslip does not read them yet.
 
 ### Kiosk terminal
 
@@ -303,3 +357,4 @@ The generated directories are gitignored. If TypeScript complains that
 | Kiosk returns 403 | The device has an IP allowlist that the request address does not match. |
 | Kiosk face guide never turns green | MediaPipe's model could not be fetched from the CDN. Check the Network tab. |
 | Asset URLs lose their port behind a TLS proxy | The proxy is passing nginx's `$host`, which strips the port. Pass `$http_host` instead, or Laravel builds `https://host/build/...` and the browser reports it as a CORS failure. |
+| Assets 404 or are blocked from `http://localhost:5173` when browsing from another machine | `public/hot` exists, so Laravel points every asset at the dev server. `localhost` is the *viewer's* machine, not the server's — and an HTTPS page cannot load HTTP modules anyway. Stop `npm run dev` (it removes the file) and `npm run build`. |
