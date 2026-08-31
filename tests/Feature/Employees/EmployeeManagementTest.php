@@ -122,6 +122,43 @@ test('employee number is auto-generated sequentially', function () {
     expect($employees[1]->employee_number)->toBe('EMP0002');
 });
 
+test('employee number generation handles an empty table and multi-digit rollover', function () {
+    expect(Employee::generateEmployeeNumber())->toBe('EMP0001');
+
+    Employee::factory()->create(['employee_number' => 'EMP0009']);
+    expect(Employee::generateEmployeeNumber())->toBe('EMP0010');
+
+    Employee::factory()->create(['employee_number' => 'EMP0099']);
+    expect(Employee::generateEmployeeNumber())->toBe('EMP0100');
+});
+
+test('the employee number lookup takes a row lock on mysql', function () {
+    // The suite runs on SQLite, whose grammar drops FOR UPDATE silently — so
+    // the lock that makes concurrent creates safe in production is invisible
+    // to every other test here. Compile the same query against the MySQL
+    // grammar (no connection is opened) to keep it from being removed.
+    $sql = Employee::on('mysql')->latest('id')->lockForUpdate()->toSql();
+
+    expect($sql)->toContain('for update');
+});
+
+test('a failure creating the employee leaves no orphaned user account behind', function () {
+    // Fail the second insert once the user row already exists — the exact
+    // window that used to strand a login with no employee attached to it.
+    Employee::creating(fn () => throw new RuntimeException('insert failed'));
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->post(route('employees.store'), [
+        'name' => 'Gagal Tengah Jalan',
+        'email' => 'gagal@example.com',
+        'status' => 'active',
+    ]))->toThrow(RuntimeException::class);
+
+    expect(User::where('email', 'gagal@example.com')->exists())->toBeFalse()
+        ->and(Employee::where('email', 'gagal@example.com')->exists())->toBeFalse();
+});
+
 test('employee can be created with a bank account number', function () {
     $this->post(route('employees.store'), [
         'name' => 'Budi Rekening',

@@ -12,6 +12,7 @@ use App\Models\Shift;
 use App\Models\User;
 use App\Support\UsernameGenerator;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -42,24 +43,34 @@ class EmployeeController extends Controller
         ]);
     }
 
+    /**
+     * Create the employee and the login account that belongs to it.
+     *
+     * Both rows are written in one transaction: a failure after the user row
+     * exists would otherwise strand a login with no employee behind it, and
+     * the employee number is only race-safe while its locking read shares the
+     * transaction that inserts the row.
+     */
     public function store(StoreEmployeeRequest $request): RedirectResponse
     {
         $plainPassword = Str::password(12, symbols: false);
 
-        $user = User::create([
-            'name' => $request->name,
-            'username' => UsernameGenerator::generate($request->name),
-            'email' => $request->email,
-            'password' => Hash::make($plainPassword),
-            'is_admin' => $request->boolean('is_admin'),
-        ]);
+        DB::transaction(function () use ($request, $plainPassword): void {
+            $user = User::create([
+                'name' => $request->name,
+                'username' => UsernameGenerator::generate($request->name),
+                'email' => $request->email,
+                'password' => Hash::make($plainPassword),
+                'is_admin' => $request->boolean('is_admin'),
+            ]);
 
-        Employee::create([
-            ...$request->validated(),
-            'user_id' => $user->id,
-            'employee_number' => Employee::generateEmployeeNumber(),
-            'annual_leave_quota' => $request->filled('annual_leave_quota') ? $request->integer('annual_leave_quota') : 12,
-        ]);
+            Employee::create([
+                ...$request->validated(),
+                'user_id' => $user->id,
+                'employee_number' => Employee::generateEmployeeNumber(),
+                'annual_leave_quota' => $request->filled('annual_leave_quota') ? $request->integer('annual_leave_quota') : 12,
+            ]);
+        });
 
         return to_route('employees.index')
             ->with('generated_password', $plainPassword);

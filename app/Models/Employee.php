@@ -136,11 +136,21 @@ class Employee extends Model
 
     /**
      * Generate the next employee number.
+     *
+     * Must be called inside the same transaction that inserts the row. The
+     * read is locked, so a second creator blocks here until the first has
+     * committed and then reads the number that was actually written. Without
+     * the lock both compute the same value and one insert dies on the unique
+     * index.
      */
     public static function generateEmployeeNumber(): string
     {
-        $latest = static::query()->latest('id')->first();
-        $next = $latest ? ((int) ltrim(substr($latest->employee_number, 3), '0') + 1) : 1;
+        $latest = static::query()
+            ->latest('id')
+            ->lockForUpdate()
+            ->value('employee_number');
+
+        $next = $latest ? (int) substr($latest, 3) + 1 : 1;
 
         return 'EMP'.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
