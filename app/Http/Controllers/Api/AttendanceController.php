@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\RecordAttendanceEvent;
 use App\AttendanceEventType;
 use App\Http\Controllers\Controller;
-use App\Models\Attendance;
 use App\Models\Employee;
 use App\Support\AttendanceSettings;
 use App\Support\FaceVerification;
@@ -48,7 +48,7 @@ class AttendanceController extends Controller
      * Break is optional: from "checked in, no break" the next action is
      * break_start, but the client may send check_out directly to skip it.
      */
-    public function recordEvent(Request $request): JsonResponse
+    public function recordEvent(Request $request, RecordAttendanceEvent $record): JsonResponse
     {
         $employee = $request->user()->employee;
 
@@ -68,29 +68,10 @@ class AttendanceController extends Controller
 
         $requestedType = AttendanceEventType::from($validated['type']);
 
-        // Resolve (or create) today's header, snapshotting the applicable shift.
-        $attendance = $employee->attendances()->whereDate('date', today())->first();
-
-        if (! $attendance) {
-            $attendance = $employee->attendances()->create([
-                'date' => today()->toDateString(),
-                'shift_id' => AttendanceSettings::resolveShift($employee, today())?->id,
-            ]);
-        }
-
-        $expected = $attendance->nextExpectedAction();
-
-        // Allow skipping break: check_in state may jump straight to check_out.
-        $skipBreak = $attendance->breakEnabled()
-            && $attendance->check_in !== null
-            && $attendance->break_start === null
-            && $requestedType === AttendanceEventType::CheckOut;
-
-        if ($expected !== $requestedType && ! $skipBreak) {
-            throw ValidationException::withMessages([
-                'type' => [$this->unexpectedActionMessage($expected)],
-            ]);
-        }
+        // Cheapest, most diagnostic failure first: a request for an action the
+        // timeline is not waiting for is refused before any GPS maths or a
+        // CPU-bound trip to the face service.
+        $record->assertActionIsDue($employee, $requestedType);
 
         $this->validateGpsIntegrity($validated['accuracy'], $validated['gps_timestamp']);
         $this->validateGeofence($validated['latitude'], $validated['longitude']);
@@ -99,70 +80,22 @@ class AttendanceController extends Controller
         // reported first (cheaper and more diagnostic).
         $face = $this->verifyFace($request, $employee);
 
-        $now = now();
-        $time = $now->format('H:i:s');
-
-        // Source of truth: the event row with full per-action audit.
-        $attendance->events()->create([
-            'type' => $requestedType,
-            'occurred_at' => $now,
-            'lat' => $validated['latitude'],
-            'lng' => $validated['longitude'],
-            'accuracy' => $validated['accuracy'],
-            'photo_path' => $face['path'],
-            'face_verified' => $face['verified'],
-            'notes' => $validated['notes'] ?? null,
-        ]);
-
-        // Mirror columns kept for cheap reads across existing views/exports.
-        $mirror = match ($requestedType) {
-            AttendanceEventType::CheckIn => [
-                'check_in' => $time,
-                'check_in_lat' => $validated['latitude'],
-                'check_in_lng' => $validated['longitude'],
-                'check_in_accuracy' => $validated['accuracy'],
-                'check_in_photo_path' => $face['path'],
-                'face_verified' => $face['verified'],
-                'status' => $attendance->resolveStatus($time),
-                'notes' => $validated['notes'] ?? null,
-            ],
-            AttendanceEventType::BreakStart => [
-                'break_start' => $time,
-            ],
-            AttendanceEventType::BreakEnd => [
-                'break_end' => $time,
-            ],
-            AttendanceEventType::CheckOut => [
-                'check_out' => $time,
-                'check_out_lat' => $validated['latitude'],
-                'check_out_lng' => $validated['longitude'],
-                'check_out_accuracy' => $validated['accuracy'],
-                'check_out_photo_path' => $face['path'],
-                'face_verified' => $face['verified'],
-            ],
-        };
-
-        $attendance->update($mirror);
+        $attendance = $record->handle(
+            employee: $employee,
+            requestedType: $requestedType,
+            photoPath: $face['path'],
+            faceVerified: $face['verified'],
+            latitude: $validated['latitude'],
+            longitude: $validated['longitude'],
+            accuracy: $validated['accuracy'],
+            notes: $validated['notes'] ?? null,
+        );
 
         return response()->json([
             'message' => $this->successMessage($requestedType),
-            'attendance' => $attendance->fresh()->load(['events', 'shift']),
-            'next_action' => $attendance->fresh()->nextExpectedAction(),
+            'attendance' => $attendance,
+            'next_action' => $attendance->nextExpectedAction(),
         ], 201);
-    }
-
-    /**
-     * Human-readable Indonesian message for an unexpected event submission.
-     */
-    private function unexpectedActionMessage(?AttendanceEventType $expected): string
-    {
-        return match ($expected) {
-            null => 'Absensi hari ini sudah selesai.',
-            AttendanceEventType::CheckIn => 'Silakan lakukan check-in terlebih dahulu.',
-            AttendanceEventType::BreakStart => 'Belum saatnya untuk aksi ini. Silakan mulai istirahat.',
-            AttendanceEventType::BreakEnd => 'Anda sedang istirahat. Silakan akhiri istirahat.',
-            AttendanceEventType::CheckOut => 'Anda sudah check-in. Silakan check-out.',
-        };
     }
 
     private function successMessage(AttendanceEventType $type): string
