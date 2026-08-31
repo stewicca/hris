@@ -7,7 +7,7 @@ interface AttendanceRecord {
   date: string;
   check_in: string | null;
   check_out: string | null;
-  status: 'present' | 'late' | 'absent';
+  status: 'present' | 'late' | 'absent' | 'sick' | 'permit';
 }
 
 interface LeaveRecord {
@@ -35,6 +35,22 @@ const MOCK_LEAVES: LeaveRecord[] = [
 interface CalendarPageProps {
   isMock: boolean;
 }
+
+const STATUS_LABEL: Record<AttendanceRecord['status'], string> = {
+  present: 'Hadir',
+  late: 'Terlambat',
+  absent: 'Tidak Hadir',
+  sick: 'Sakit',
+  permit: 'Izin',
+};
+
+const STATUS_TONE: Record<AttendanceRecord['status'], string> = {
+  present: 'text-emerald-400',
+  late: 'text-amber-400',
+  absent: 'text-rose-400',
+  sick: 'text-sky-400',
+  permit: 'text-sky-400',
+};
 
 export default function CalendarPage({ isMock }: CalendarPageProps) {
   const [viewDate, setViewDate] = useState(new Date());
@@ -245,8 +261,8 @@ export default function CalendarPage({ isMock }: CalendarPageProps) {
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Status</p>
-                <p className={`text-sm font-bold ${selectedAttendance.status === 'present' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {selectedAttendance.status === 'present' ? 'Hadir' : 'Terlambat'}
+                <p className={`text-sm font-bold ${STATUS_TONE[selectedAttendance.status]}`}>
+                  {STATUS_LABEL[selectedAttendance.status]}
                 </p>
               </div>
             </div>

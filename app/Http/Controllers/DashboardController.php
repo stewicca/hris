@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\Leave;
 use App\Support\WorkCalendar;
@@ -44,6 +45,7 @@ class DashboardController extends Controller
             'present' => $statuses->filter(fn ($s) => $s === 'present')->count(),
             'late' => $statuses->filter(fn ($s) => $s === 'late')->count(),
             'absent' => $statuses->filter(fn ($s) => $s === 'absent')->count(),
+            'excused' => $statuses->filter(fn ($s) => in_array($s, Attendance::EXCUSED_STATUSES, true))->count(),
             'leave' => $statuses->filter(fn ($s) => $s === 'leave')->count(),
             'is_working_day' => $isWorkingDay,
         ];

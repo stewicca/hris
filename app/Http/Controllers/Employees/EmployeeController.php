@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Employees;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employees\StoreEmployeeRequest;
 use App\Http\Requests\Employees\UpdateEmployeeRequest;
+use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
@@ -119,6 +120,7 @@ class EmployeeController extends Controller
                 COUNT(CASE WHEN status = 'present' THEN 1 END) as present,
                 COUNT(CASE WHEN status = 'late' THEN 1 END) as late,
                 COUNT(CASE WHEN status = 'absent' THEN 1 END) as absent,
+                COUNT(CASE WHEN status IN ('sick', 'permit') THEN 1 END) as excused,
                 COUNT(*) as total
             ")
             ->first();
@@ -134,6 +136,7 @@ class EmployeeController extends Controller
                 'present' => $group->where('status', 'present')->count(),
                 'late' => $group->where('status', 'late')->count(),
                 'absent' => $group->where('status', 'absent')->count(),
+                'excused' => $group->whereIn('status', Attendance::EXCUSED_STATUSES)->count(),
                 'total' => $group->count(),
             ])
             ->values();
@@ -146,6 +149,7 @@ class EmployeeController extends Controller
                 'present' => (int) $summary?->present,
                 'late' => (int) $summary?->late,
                 'absent' => (int) $summary?->absent,
+                'excused' => (int) $summary?->excused,
                 'total' => (int) $summary?->total,
             ],
             'monthlyRecap' => $monthlyRecap,
@@ -183,6 +187,8 @@ class EmployeeController extends Controller
                         'present' => 'Hadir',
                         'late' => 'Terlambat',
                         'absent' => 'Absen',
+                        'sick' => 'Sakit',
+                        'permit' => 'Izin',
                         default => $a->status,
                     },
                 ]);

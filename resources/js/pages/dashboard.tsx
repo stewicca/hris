@@ -72,7 +72,7 @@ export default function Dashboard({
                         </Link>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                         <div className="rounded-lg border bg-card p-4">
                             <p className="text-2xl font-bold text-foreground">
                                 {summary.total}
@@ -103,6 +103,14 @@ export default function Dashboard({
                             </p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
                                 Tidak Hadir
+                            </p>
+                        </div>
+                        <div className="rounded-lg border bg-card p-4">
+                            <p className="text-2xl font-bold text-sky-600 dark:text-sky-400">
+                                {summary.excused}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                Izin/Sakit
                             </p>
                         </div>
                     </div>

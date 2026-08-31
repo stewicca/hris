@@ -27,7 +27,7 @@ interface Attendance {
   check_out: string | null;
   break_start: string | null;
   break_end: string | null;
-  status: 'present' | 'late' | 'absent';
+  status: 'present' | 'late' | 'absent' | 'sick' | 'permit';
 }
 
 interface OfficeHours {

@@ -53,15 +53,19 @@ const STATUS_LABEL: Record<Attendance['status'], string> = {
     present: 'Hadir',
     late: 'Terlambat',
     absent: 'Absen',
+    sick: 'Sakit',
+    permit: 'Izin',
 };
 
 const STATUS_VARIANT: Record<
     Attendance['status'],
-    'default' | 'secondary' | 'destructive'
+    'default' | 'secondary' | 'destructive' | 'outline'
 > = {
     present: 'default',
     late: 'secondary',
     absent: 'destructive',
+    sick: 'outline',
+    permit: 'outline',
 };
 
 function initials(name: string) {
@@ -449,6 +453,9 @@ function MonthlyRecapTable({ recap }: { recap: MonthlyAttendance[] }) {
                             Absen
                         </th>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground">
+                            Izin/Sakit
+                        </th>
+                        <th className="px-4 py-3 text-center font-medium text-muted-foreground">
                             Total
                         </th>
                         <th className="px-4 py-3 text-center font-medium text-muted-foreground">
@@ -481,6 +488,9 @@ function MonthlyRecapTable({ recap }: { recap: MonthlyAttendance[] }) {
                                 </td>
                                 <td className="px-4 py-3 text-center text-destructive">
                                     {row.absent}
+                                </td>
+                                <td className="px-4 py-3 text-center text-sky-600 dark:text-sky-400">
+                                    {row.excused}
                                 </td>
                                 <td className="px-4 py-3 text-center text-muted-foreground">
                                     {row.total}
@@ -954,7 +964,7 @@ export default function EmployeesShow({
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
                             <div className="rounded-lg bg-muted/50 px-4 py-3 text-center">
                                 <p className="text-2xl font-bold text-foreground">
                                     {attendanceSummary.present}
@@ -977,6 +987,14 @@ export default function EmployeesShow({
                                 </p>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
                                     Absen
+                                </p>
+                            </div>
+                            <div className="rounded-lg bg-muted/50 px-4 py-3 text-center">
+                                <p className="text-2xl font-bold text-sky-600 dark:text-sky-400">
+                                    {attendanceSummary.excused}
+                                </p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    Izin/Sakit
                                 </p>
                             </div>
                             <div className="rounded-lg bg-muted/50 px-4 py-3 text-center">

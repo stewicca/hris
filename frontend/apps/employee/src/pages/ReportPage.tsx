@@ -7,7 +7,7 @@ interface AttendanceRecord {
   date: string;
   check_in: string | null;
   check_out: string | null;
-  status: 'present' | 'late' | 'absent';
+  status: 'present' | 'late' | 'absent' | 'sick' | 'permit';
 }
 
 interface MonthSummary {
