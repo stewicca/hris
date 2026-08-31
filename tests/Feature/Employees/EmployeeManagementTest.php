@@ -5,6 +5,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
 beforeEach(function () {
@@ -157,6 +158,62 @@ test('a failure creating the employee leaves no orphaned user account behind', f
 
     expect(User::where('email', 'gagal@example.com')->exists())->toBeFalse()
         ->and(Employee::where('email', 'gagal@example.com')->exists())->toBeFalse();
+});
+
+test('employee creation retries when a generated value loses a race', function () {
+    $attempts = 0;
+
+    // Stands in for a concurrent create that committed the same generated
+    // username a moment earlier — something the losing attempt cannot see
+    // from inside its own transaction.
+    User::creating(function () use (&$attempts): void {
+        $attempts++;
+
+        if ($attempts === 1) {
+            throw new UniqueConstraintViolationException(
+                'sqlite',
+                'insert into "users" ("username") values (?)',
+                [],
+                new Exception('UNIQUE constraint failed: users.username'),
+            );
+        }
+    });
+
+    $this->post(route('employees.store'), [
+        'name' => 'Budi Kembar',
+        'email' => 'kembar@example.com',
+        'status' => 'active',
+    ])->assertRedirect(route('employees.index'));
+
+    expect($attempts)->toBe(2)
+        ->and(Employee::where('email', 'kembar@example.com')->exists())->toBeTrue();
+});
+
+test('employee creation gives up after repeated collisions and leaves nothing behind', function () {
+    $attempts = 0;
+
+    User::creating(function () use (&$attempts): void {
+        $attempts++;
+
+        throw new UniqueConstraintViolationException(
+            'sqlite',
+            'insert into "users" ("username") values (?)',
+            [],
+            new Exception('UNIQUE constraint failed: users.username'),
+        );
+    });
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->post(route('employees.store'), [
+        'name' => 'Selalu Bentrok',
+        'email' => 'bentrok@example.com',
+        'status' => 'active',
+    ]))->toThrow(UniqueConstraintViolationException::class);
+
+    expect($attempts)->toBe(3)
+        ->and(User::where('email', 'bentrok@example.com')->exists())->toBeFalse()
+        ->and(Employee::where('email', 'bentrok@example.com')->exists())->toBeFalse();
 });
 
 test('employee can be created with a bank account number', function () {

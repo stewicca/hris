@@ -11,6 +11,7 @@ use App\Models\Position;
 use App\Models\Shift;
 use App\Models\User;
 use App\Support\UsernameGenerator;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -21,6 +22,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmployeeController extends Controller
 {
+    /**
+     * How many times a create is retried when a generated value collides.
+     */
+    private const int CREATE_ATTEMPTS = 3;
+
     public function index(): Response
     {
         $employees = Employee::query()
@@ -43,37 +49,63 @@ class EmployeeController extends Controller
         ]);
     }
 
-    /**
-     * Create the employee and the login account that belongs to it.
-     *
-     * Both rows are written in one transaction: a failure after the user row
-     * exists would otherwise strand a login with no employee behind it, and
-     * the employee number is only race-safe while its locking read shares the
-     * transaction that inserts the row.
-     */
     public function store(StoreEmployeeRequest $request): RedirectResponse
     {
         $plainPassword = Str::password(12, symbols: false);
 
-        DB::transaction(function () use ($request, $plainPassword): void {
-            $user = User::create([
-                'name' => $request->name,
-                'username' => UsernameGenerator::generate($request->name),
-                'email' => $request->email,
-                'password' => Hash::make($plainPassword),
-                'is_admin' => $request->boolean('is_admin'),
-            ]);
-
-            Employee::create([
-                ...$request->validated(),
-                'user_id' => $user->id,
-                'employee_number' => Employee::generateEmployeeNumber(),
-                'annual_leave_quota' => $request->filled('annual_leave_quota') ? $request->integer('annual_leave_quota') : 12,
-            ]);
-        });
+        $this->createEmployeeWithAccount($request, $plainPassword);
 
         return to_route('employees.index')
             ->with('generated_password', $plainPassword);
+    }
+
+    /**
+     * Write the employee and the login account it belongs to in one
+     * transaction, retrying when a generated value loses a race.
+     *
+     * Both rows go in together because a failure after the user row exists
+     * would otherwise strand a login with no employee behind it.
+     *
+     * The username and the employee number are each derived from a read that
+     * cannot see another request's uncommitted rows, so two creates running
+     * at the same moment can derive the same value and collide on a unique
+     * index. The row lock on the employee number covers the common case;
+     * retrying covers what a lock cannot — a username derived from an
+     * identical name, and the very first employee, where there is no row to
+     * lock yet. Each retry re-derives both against what the winner has since
+     * committed.
+     *
+     * A collision retrying cannot resolve — a duplicate email that slipped
+     * past validation, say — exhausts the attempts and rethrows.
+     */
+    private function createEmployeeWithAccount(StoreEmployeeRequest $request, string $plainPassword): void
+    {
+        foreach (range(1, self::CREATE_ATTEMPTS) as $attempt) {
+            try {
+                DB::transaction(function () use ($request, $plainPassword): void {
+                    $user = User::create([
+                        'name' => $request->name,
+                        'username' => UsernameGenerator::generate($request->name),
+                        'email' => $request->email,
+                        'password' => Hash::make($plainPassword),
+                        'is_admin' => $request->boolean('is_admin'),
+                    ]);
+
+                    Employee::create([
+                        ...$request->validated(),
+                        'user_id' => $user->id,
+                        'employee_number' => Employee::generateEmployeeNumber(),
+                        'annual_leave_quota' => $request->filled('annual_leave_quota') ? $request->integer('annual_leave_quota') : 12,
+                    ]);
+                });
+
+                return;
+            } catch (UniqueConstraintViolationException $e) {
+                if ($attempt === self::CREATE_ATTEMPTS) {
+                    throw $e;
+                }
+            }
+        }
     }
 
     public function show(Employee $employee): Response
