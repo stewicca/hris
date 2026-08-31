@@ -126,7 +126,7 @@ export default function Dashboard({
 
                         <div className="grid grid-cols-3 gap-3">
                             <Link
-                                href={leavesIndex.url({ status: 'pending' })}
+                                href={leavesIndex.url({ query: { status: 'pending' } })}
                                 className="rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
                             >
                                 <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
