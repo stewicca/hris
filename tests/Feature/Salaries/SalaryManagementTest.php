@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Models\Employee;
 use App\Models\Salary;
 use App\Models\User;
@@ -99,6 +100,18 @@ it('forbids non-admins from printing a payslip', function () {
     $salary = Salary::factory()->create(['employee_id' => $this->employee->id]);
 
     $this->actingAs(User::factory()->create())
+        ->get(route('salaries.print', $salary))
+        ->assertForbidden();
+});
+
+it('forbids non-admins from printing a payslip without relying on route middleware', function () {
+    $salary = Salary::factory()->create(['employee_id' => $this->employee->id]);
+
+    // Drop the admin middleware to prove the controller carries the guarantee
+    // itself: if this route is ever moved out of the admin group, printing
+    // must still not become an unscoped read of any payslip by id.
+    $this->withoutMiddleware(EnsureUserIsAdmin::class)
+        ->actingAs(User::factory()->create())
         ->get(route('salaries.print', $salary))
         ->assertForbidden();
 });

@@ -9,12 +9,25 @@ use App\Models\Salary;
 use App\Notifications\EmployeeNotification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class SalaryController extends Controller
 {
-    public function print(Salary $salary): View
+    /**
+     * Render a payslip for printing.
+     *
+     * The admin check is repeated here rather than left to the route group.
+     * This action renders somebody else's salary, so moving the route out of
+     * that group — to let employees print their own from the dashboard, say —
+     * would otherwise turn it into an unscoped read of every payslip by id.
+     * The employee-facing equivalent is Api\SalaryController::print, which
+     * scopes to the owner instead.
+     */
+    public function print(Request $request, Salary $salary): View
     {
+        abort_unless((bool) $request->user()?->is_admin, 403);
+
         $salary->load('employee.department', 'employee.position');
 
         return view('salaries.print', ['salary' => $salary]);
