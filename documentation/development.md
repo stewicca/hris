@@ -260,9 +260,34 @@ The break rule is hidden wherever no break is ever recorded — the global break
 feature being off, or that shift's `break_enabled` being false — because there
 would be no overrun to measure.
 
-**Not yet wired into payroll.** The rules are stored, validated and resolvable,
-and `PayrollDeductionSettings` has the helpers to price them, but drafting a
-payslip does not read them yet.
+`AttendanceDeduction` is the piece that decides how many minutes there were.
+It reads an attendance row's mirror columns against the schedule that applied,
+and three details are worth knowing:
+
+- **The break is graded by length, not by the clock.** Somebody who starts their
+  hour late and still takes an hour has overrun nothing.
+- **A day with no clock-out is never charged for leaving early.** A missing tap
+  is evidence of forgetfulness, not of an early exit; an admin who knows better
+  writes the real time in with *Absenkan* and the charge follows.
+- **Sakit and izin cost nothing.** That is the point of recording them.
+
+Everything is priced against the shift the attendance row *snapshotted*, so
+moving somebody onto a later shift cannot retroactively forgive — or invent —
+last month's lateness. Rows written before that snapshot existed fall back to
+resolving the shift as of now.
+
+The result surfaces in three places:
+
+| Where | What |
+| --- | --- |
+| *Rekap Bulanan* on the employee page | one **Potongan** column per month |
+| The attendance CSV export | **Potongan** (a bare number, so the column sums) and **Rincian Potongan** |
+| A new payslip | one deduction component per rule group that fired |
+
+The payslip lines are computed in `SalaryController::store`, not read off the
+form — they are the one part of a payslip nobody types, and taking them from the
+request would let a hand-edited amount decide its own penalty. The form previews
+the same figure from the recap it already has, so the total is never a surprise.
 
 ### Kiosk terminal
 
