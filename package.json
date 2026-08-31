@@ -12,6 +12,8 @@
         "dev": "vite",
         "dev:employee": "npm run dev --workspace=@hris/employee",
         "build:employee": "npm run build --workspace=@hris/employee",
+        "dev:kiosk": "npm run dev --workspace=@hris/kiosk",
+        "build:kiosk": "npm run build --workspace=@hris/kiosk",
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",

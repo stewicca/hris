@@ -22,6 +22,7 @@ function featurePayload(array $override = []): array
         // request fail validation and redirect back, which assertRedirect()
         // happily accepted while nothing was actually saved.
         'payroll_enabled' => true,
+        'kiosk_enabled' => false,
     ], $override);
 }
 
@@ -33,11 +34,27 @@ it('shows the feature settings page with all toggles', function () {
             ->where('leaveEnabled', true)
             ->where('breakEnabled', false)
             ->where('shiftEnabled', false)
+            ->where('kioskEnabled', false)
         );
 });
 
 it('defaults to leave enabled when no setting is stored', function () {
     expect(FeatureSettings::leaveEnabled())->toBeTrue();
+});
+
+it('keeps the kiosk terminal off until an admin turns it on', function () {
+    // The terminal records attendance with no employee session behind it, so it
+    // should not exist on an installation that never asked for one.
+    expect(FeatureSettings::kioskEnabled())->toBeFalse();
+});
+
+it('enables the kiosk terminal', function () {
+    $this->put(route('feature-settings.update'), featurePayload([
+        'kiosk_enabled' => true,
+    ]))->assertRedirect();
+
+    expect(Setting::get('kiosk_enabled'))->toBeTrue()
+        ->and(FeatureSettings::kioskEnabled())->toBeTrue();
 });
 
 it('enables the leave feature', function () {

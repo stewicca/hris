@@ -19,7 +19,7 @@ class FaceVerification
      * Extract an embedding from an enrollment photo.
      *
      * @param  string  $imagePath  Absolute path to the uploaded image on local disk.
-     * @return array{embedding: list<float>|null, detected: bool, liveness: string}
+     * @return array{embedding: list<float>|null, detected: bool, liveness: string, reachable: bool}
      */
     public static function embed(string $imagePath): array
     {
@@ -47,11 +47,34 @@ class FaceVerification
     }
 
     /**
-     * Whether the feature is enabled and the microservice is reachable.
+     * Whether the feature is switched on in configuration.
      */
     public static function isEnabled(): bool
     {
         return (bool) config('attendance.face.enabled', true);
+    }
+
+    /**
+     * Whether the microservice is enabled AND answering right now.
+     *
+     * Only for surfaces that need to report health up front — the kiosk shows
+     * "terminal offline" rather than letting someone pose for a scan that was
+     * never going to succeed. The verification paths must not consult this and
+     * then fall open; they fail closed on their own.
+     */
+    public static function isOperational(): bool
+    {
+        if (! self::isEnabled()) {
+            return false;
+        }
+
+        try {
+            return Http::timeout(3)
+                ->get(config('attendance.face.service_url').'/health')
+                ->successful();
+        } catch (ConnectionException) {
+            return false;
+        }
     }
 
     /**
@@ -97,7 +120,10 @@ class FaceVerification
             return self::unreachablePayload();
         }
 
-        return $response->json() ?? [];
+        // 'reachable' lets callers tell a genuine "no face in frame" apart from
+        // a service that never answered, which fail-closed reporting would
+        // otherwise render as the same empty result.
+        return [...($response->json() ?? []), 'reachable' => true];
     }
 
     /**
@@ -115,6 +141,7 @@ class FaceVerification
             'liveness' => 'unknown',
             'verified' => false,
             'distance' => 1.0,
+            'reachable' => false,
         ];
     }
 }

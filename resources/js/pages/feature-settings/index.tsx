@@ -4,6 +4,7 @@ import {
     CheckCircle2,
     MoonStar,
     Coffee,
+    ScanFace,
     Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -25,6 +26,7 @@ interface PageProps {
     breakEnabled: boolean;
     shiftEnabled: boolean;
     payrollEnabled: boolean;
+    kioskEnabled: boolean;
 }
 
 interface ToggleCardProps {
@@ -71,6 +73,7 @@ export default function FeatureSettingsIndex({
     breakEnabled,
     shiftEnabled,
     payrollEnabled,
+    kioskEnabled,
 }: PageProps) {
     const flash = usePage().props.flash;
     const [toast, setToast] = useState<string | null>(null);
@@ -87,6 +90,7 @@ export default function FeatureSettingsIndex({
     const [breakOn, setBreakOn] = useState(breakEnabled);
     const [shiftOn, setShiftOn] = useState(shiftEnabled);
     const [payrollOn, setPayrollOn] = useState(payrollEnabled);
+    const [kioskOn, setKioskOn] = useState(kioskEnabled);
     const [saving, setSaving] = useState(false);
 
     const submit = () => {
@@ -97,6 +101,7 @@ export default function FeatureSettingsIndex({
                 attendance_break_enabled: breakOn,
                 attendance_shift_enabled: shiftOn,
                 payroll_enabled: payrollOn,
+                kiosk_enabled: kioskOn,
             },
             {
                 preserveScroll: true,
@@ -158,6 +163,14 @@ export default function FeatureSettingsIndex({
                     description="Aktifkan pencatatan waktu istirahat. Saat aktif, karyawan dapat mencatat mulai dan selesai istirahat selama jam kerja. Istirahat bersifat opsional — karyawan dapat melewatinya. Durasi istirahat akan dikurangkan dari total jam kerja."
                     checked={breakOn}
                     onChange={setBreakOn}
+                />
+
+                <ToggleCard
+                    icon={<ScanFace className="size-4" />}
+                    title="Terminal Absensi (Kiosk)"
+                    description="Aktifkan terminal absensi tanpa login di lokasi kantor. Karyawan cukup menghadap kamera; wajahnya dicocokkan dengan seluruh data karyawan terdaftar, lalu ia mengonfirmasi namanya di layar. Setiap terminal memerlukan token perangkat yang dibuat lewat perintah `php artisan kiosk:register`. Saat dinonaktifkan, seluruh endpoint terminal tidak dapat diakses."
+                    checked={kioskOn}
+                    onChange={setKioskOn}
                 />
 
                 <Button onClick={submit} disabled={saving}>

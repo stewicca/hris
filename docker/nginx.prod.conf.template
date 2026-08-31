@@ -146,3 +146,69 @@ server {
         deny all;
     }
 }
+
+# =============================================================================
+# Attendance kiosk (static) + reverse-proxy /api/kiosk → Laravel (FastCGI)
+#
+# A separate vhost rather than a path on the portal, because this terminal is a
+# screen strangers stand in front of. Only the kiosk endpoints are reachable
+# from it — /api/login and the authenticated API are not proxied here at all, so
+# a tampered browser on the terminal has nothing else to reach for.
+#
+# Bound to HRIS_KIOSK_HOST; deployments without a terminal leave that unset and
+# the block matches nothing.
+# =============================================================================
+server {
+    listen 80;
+    server_name ${HRIS_KIOSK_HOST};
+
+    root /var/www/kiosk;
+    index index.html;
+
+    # Scan photos are capped at 5 MB by the application's validation rules.
+    client_max_body_size 10M;
+
+    add_header X-Frame-Options "DENY";
+    add_header X-Content-Type-Options "nosniff";
+
+    charset utf-8;
+
+    # Optional network lock. Uncomment and set the office's public address or
+    # LAN range once it is known — this is the strongest location control the
+    # terminal has, because unlike a URL it cannot be forwarded to somebody at
+    # home. The per-device allowlist in the kiosk_devices table does the same
+    # job and can be changed without a redeploy; use whichever fits.
+    #
+    # allow 203.0.113.0/24;
+    # deny all;
+
+    location /api/kiosk {
+        limit_req zone=api burst=30 nodelay;
+
+        fastcgi_pass app:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto;
+        fastcgi_param HTTP_X_FORWARDED_FOR   $remote_addr;
+        fastcgi_param HTTP_X_FORWARDED_HOST  $http_host;
+        fastcgi_param HTTP_X_REAL_IP         $remote_addr;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    # Everything else under /api stays unreachable from the terminal's origin.
+    location /api {
+        return 404;
+    }
+
+    # SPA fallback for client-side routes
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}

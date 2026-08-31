@@ -82,6 +82,9 @@ export default [
         ignores: [
             'vendor',
             'node_modules',
+            // Built SPA bundles. Linting a minified bundle produces thousands
+            // of meaningless findings and drowns the real ones.
+            '**/dist',
             'public',
             'bootstrap/ssr',
             'tailwind.config.js',

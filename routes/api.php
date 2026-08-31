@@ -4,15 +4,30 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DocsController;
 use App\Http\Controllers\Api\EnrollmentController;
+use App\Http\Controllers\Api\KioskController;
 use App\Http\Controllers\Api\LeaveController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\SalaryController;
+use App\Http\Middleware\EnsureKioskFeatureEnabled;
 use App\Http\Middleware\EnsureLeaveFeatureEnabled;
 use App\Http\Middleware\EnsurePayrollFeatureEnabled;
+use App\Http\Middleware\EnsureValidKioskDevice;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', DocsController::class);
 Route::get('/status', fn () => response()->json(['status' => 'connected', 'version' => '1.0.0']));
+
+// Unattended terminal. Outside the 'web' group on purpose: there is no
+// employee session to carry, so there is no session cookie and no CSRF token
+// to protect. The terminal authenticates as a device instead, and the face
+// supplies the identity.
+Route::prefix('kiosk')
+    ->middleware([EnsureKioskFeatureEnabled::class, EnsureValidKioskDevice::class, 'throttle:kiosk'])
+    ->group(function () {
+        Route::get('/settings', [KioskController::class, 'settings']);
+        Route::post('/identify', [KioskController::class, 'identify']);
+        Route::post('/event', [KioskController::class, 'store']);
+    });
 
 Route::middleware(['web'])->group(function () {
     Route::get('/csrf-cookie', fn () => response()->noContent());

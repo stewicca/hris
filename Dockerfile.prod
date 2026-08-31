@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # =============================================================================
-# Stage 1: Build frontend assets (dashboard + employee SPA)
+# Stage 1: Build frontend assets (dashboard + employee SPA + kiosk terminal)
 # =============================================================================
 FROM node:22-alpine AS frontend
 
@@ -23,6 +23,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-script
 # workspace-scoped devDependencies before the full source is copied.
 COPY package.json package-lock.json ./
 COPY frontend/apps/employee/package.json frontend/apps/employee/
+COPY frontend/apps/kiosk/package.json frontend/apps/kiosk/
 COPY frontend/packages/shared/package.json frontend/packages/shared/
 RUN npm ci
 
@@ -31,11 +32,11 @@ COPY . .
 ARG VITE_APP_NAME=HRIS
 ENV VITE_APP_NAME=${VITE_APP_NAME}
 
-# Build the dashboard (Laravel/Inertia) and the employee SPA.
+# Build the dashboard (Laravel/Inertia), the employee SPA and the kiosk terminal.
 # NOTE: the open-file limit must be raised via `podman build --ulimit nofile`
 # because rootless buildah caps the hard limit at 1024, which esbuild blows
 # past while resolving tsconfig/workspaces.
-RUN npm run build && npm run build:employee
+RUN npm run build && npm run build:employee && npm run build:kiosk
 
 # =============================================================================
 # Stage 2: PHP-FPM application (Laravel backend)
@@ -92,7 +93,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisor.conf"]
 
 # =============================================================================
-# Stage 3: Nginx (Laravel public + employee static SPA)
+# Stage 3: Nginx (Laravel public + employee static SPA + kiosk terminal)
 # =============================================================================
 FROM nginx:1.27-alpine AS nginx
 
@@ -103,3 +104,6 @@ COPY --from=frontend /app/public /var/www/html/public
 
 # Employee SPA static build
 COPY --from=frontend /app/frontend/apps/employee/dist /var/www/employee
+
+# Kiosk terminal static build
+COPY --from=frontend /app/frontend/apps/kiosk/dist /var/www/kiosk

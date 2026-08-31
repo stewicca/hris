@@ -39,4 +39,27 @@ return [
         'require_enrollment' => (bool) env('FACE_REQUIRE_ENROLLMENT', true),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kiosk Terminal
+    |--------------------------------------------------------------------------
+    |
+    | The unattended terminal identifies an employee from their face alone
+    | (1:N) instead of confirming an already-authenticated one (1:1).
+    |
+    | identify_threshold: maximum cosine distance for a match. Stricter than
+    |   face.threshold on purpose — a 1:N search has as many chances to be
+    |   wrong as there are enrolled employees, so the bar has to be higher.
+    | identify_margin: how much closer the winner must be than the runner-up.
+    |   Below this the two candidates are treated as indistinguishable and the
+    |   scan is refused rather than guessed.
+    |
+    */
+
+    'kiosk' => [
+        'identify_threshold' => (float) env('KIOSK_IDENTIFY_THRESHOLD', 0.38),
+        'identify_margin' => (float) env('KIOSK_IDENTIFY_MARGIN', 0.06),
+        'scan_ttl_seconds' => (int) env('KIOSK_SCAN_TTL_SECONDS', 90),
+    ],
+
 ];

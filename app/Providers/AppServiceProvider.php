@@ -65,6 +65,14 @@ class AppServiceProvider extends ServiceProvider
         // takes to saturate the box.
         RateLimiter::for('face', fn (Request $request) => Limit::perMinute(12)
             ->by($request->user()?->id ?: $request->ip()));
+
+        // Kiosk terminals need their own bucket. The face limiter keys by IP
+        // for unauthenticated callers, which would make one terminal's dozen
+        // scans the whole office's ration during a shift change. Keyed per
+        // device and set well above what one queue in front of one camera can
+        // physically produce.
+        RateLimiter::for('kiosk', fn (Request $request) => Limit::perMinute(30)
+            ->by('kiosk|'.(string) $request->header('X-Kiosk-Token', $request->ip())));
     }
 
     /**

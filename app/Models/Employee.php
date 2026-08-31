@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\FaceMatcher;
 use Carbon\CarbonInterface;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -43,6 +44,21 @@ class Employee extends Model
             'face_embedding' => 'array',
             'face_enrolled_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Keep the kiosk's cached roster of face embeddings honest.
+     *
+     * The kiosk matches a scan against every enrolled employee, and that list
+     * is cached because a shift change pushes the whole office through one
+     * terminal in a few minutes. Without this hook a freshly enrolled employee
+     * would be unrecognisable, and a deleted one still recognisable, until the
+     * cache happened to be cleared.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn () => FaceMatcher::forgetEnrolledEmbeddings());
+        static::deleted(fn () => FaceMatcher::forgetEnrolledEmbeddings());
     }
 
     /**

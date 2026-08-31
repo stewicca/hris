@@ -20,6 +20,8 @@ class FeatureSettings
 
     public const DEFAULT_PAYROLL_ENABLED = true;
 
+    public const DEFAULT_KIOSK_ENABLED = false;
+
     /**
      * Whether the leave (cuti) module is enabled.
      */
@@ -34,6 +36,18 @@ class FeatureSettings
     public static function payrollEnabled(): bool
     {
         return (bool) Setting::get('payroll_enabled', self::DEFAULT_PAYROLL_ENABLED);
+    }
+
+    /**
+     * Whether the unattended kiosk terminal is accepting attendance.
+     *
+     * Off by default: the kiosk records attendance without an employee session,
+     * so it should only exist once an admin has deliberately provisioned a
+     * device for it.
+     */
+    public static function kioskEnabled(): bool
+    {
+        return (bool) Setting::get('kiosk_enabled', self::DEFAULT_KIOSK_ENABLED);
     }
 
     /**

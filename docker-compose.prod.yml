@@ -62,6 +62,9 @@ services:
       NGINX_ENVSUBST_FILTER: '^HRIS_'
       HRIS_DASHBOARD_HOST: ${HRIS_DASHBOARD_HOST:?HRIS_DASHBOARD_HOST is required}
       HRIS_PORTAL_HOST: ${HRIS_PORTAL_HOST:?HRIS_PORTAL_HOST is required}
+      # Optional: deployments without an attendance terminal leave this unset,
+      # and the vhost is then bound to a name nothing can resolve to.
+      HRIS_KIOSK_HOST: ${HRIS_KIOSK_HOST:-kiosk.invalid}
     # Bound to loopback: Caddy on the host terminates TLS and proxies here.
     # Docker writes its own nat rules ahead of UFW, so a bare "8080:80" would
     # publish this to the public internet regardless of `ufw status`.
