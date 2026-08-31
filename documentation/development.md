@@ -200,6 +200,35 @@ GPS integrity thresholds (`GPS_MAX_ACCURACY_METERS`, `GPS_MAX_AGE_SECONDS`) do
 live in `.env`. Raise them if a desktop browser's coarse location is being
 rejected during testing.
 
+### Recording attendance by hand
+
+The *Kehadiran* board carries an **Absenkan** button on every row. It covers two
+cases the portal and the kiosk cannot: somebody who forgot to clock in and only
+says so afterwards, and somebody marked **Sakit** or **Izin** — which, once the
+leave module is switched off under *Pengaturan Fitur*, is the only way either
+gets recorded at all.
+
+`attendances.status` therefore holds five values: `present`, `late`, `absent`,
+`sick` and `permit`. The last two are stored on the record; the `leave` and
+`holiday` you see on the board are derived for employees with no record at all
+and are never written.
+
+Two rules keep a hand-written record honest:
+
+- **`late` cannot be chosen.** The admin picks *Hadir* and fills the times;
+  `resolveStatus()` grades them against the schedule `scheduleFor()` resolves,
+  exactly as a real check-in is graded. A record can never disagree with its own
+  clock.
+- **A day nobody worked carries no times.** Marking someone sick or excused
+  drops any times submitted with it and deletes the events behind them.
+
+Every write lands in `attendances.recorded_by` and on each event it touches
+(`attendance_events.recorded_by`), so a filled-in time is always distinguishable
+from a clocked one — a manual event carries no GPS and no photo. Times the admin
+left alone are not rewritten, so adding a forgotten check-out leaves the real
+check-in's evidence intact. Only a record whose every event is admin-written can
+be deleted; a day the employee actually clocked must be corrected instead.
+
 ### Salary deductions
 
 Attendance-driven deductions — arriving late, leaving early, overstaying a break

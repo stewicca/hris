@@ -256,7 +256,9 @@ The application is running but not yet usable. Log in at
 - [ ] **Configure real mail.** `MAIL_MAILER=log` discards everything, which
       means password reset emails are never delivered.
 - [ ] **Confirm feature toggles** — leave, payroll, shifts, breaks and the kiosk
-      are each switchable and hide their UI when off.
+      are each switchable and hide their UI when off. Switching leave off leaves
+      *Sakit* and *Izin* recordable only through **Absenkan** on the *Kehadiran*
+      board, so make sure whoever handles attendance has an admin account.
 - [ ] **Set the salary deduction rules** under *Potongan Gaji* if payroll is on.
       Every rule ships off, and a shift can override the global ladders. Note
       these are configuration only for now: drafting a payslip does not read
