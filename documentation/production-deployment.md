@@ -82,21 +82,26 @@ sudo ufw status verbose      # expect: deny incoming, allow 22/80/443
 
 ### Step 2. DNS
 
-Point both names at the server before requesting certificates — Caddy needs to
+Point the names at the server before requesting certificates — Caddy needs to
 answer the ACME challenge on a name that already resolves:
 
 ```
 <dashboard-host>.   A   <server-ip>
 <portal-host>.      A   <server-ip>
+<kiosk-host>.       A   <server-ip>     # only if deploying a terminal
 ```
 
 Verify: `dig +short <dashboard-host>`
+
+The kiosk name is optional. Skip it and leave `HRIS_KIOSK_HOST` unset in
+step 4; its vhost is then bound to a name nothing resolves to and matches
+nothing.
 
 ### Step 3. Caddy
 
 ```bash
 sudo tee /etc/caddy/Caddyfile >/dev/null <<'CADDY'
-<dashboard-host>, <portal-host> {
+<dashboard-host>, <portal-host>, <kiosk-host> {
     encode zstd gzip
     reverse_proxy 127.0.0.1:8080
 }
@@ -106,9 +111,11 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
-Both names go to the same upstream on purpose: the nginx container routes them
+All names go to the same upstream on purpose: the nginx container routes them
 apart by `server_name`, so Caddy must preserve the `Host` header — which
-`reverse_proxy` does by default. Caddy also sets `X-Forwarded-Proto`, which
+`reverse_proxy` does by default. Drop `<kiosk-host>` from the line if you are
+not deploying a terminal; Caddy will otherwise fail to get a certificate for a
+name that does not resolve. Caddy also sets `X-Forwarded-Proto`, which
 `docker/nginx.prod.conf` passes through to Laravel so it generates `https://`
 asset URLs instead of `http://`.
 
@@ -144,6 +151,7 @@ Now edit `.env.prod` and replace **every** `CHANGE_ME`:
 | `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Distinct, long, random. Store in the password manager. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | The bootstrap admin. The seeder aborts if either is missing. |
 | `HRIS_DASHBOARD_HOST`, `HRIS_PORTAL_HOST` | The two hostnames from step 2. These are rendered into the nginx container's `server_name` at start, so the domains live here rather than in the image — no repo file needs editing per deployment. |
+| `HRIS_KIOSK_HOST` | Optional, and commented out in the example. Set it only if you are deploying an attendance terminal. |
 | `APP_URL` | `https://<dashboard-host>` |
 
 Also confirm `APP_TIMEZONE`. It defaults to `Asia/Jakarta` in the example, but
@@ -219,6 +227,7 @@ habit is worth avoiding.
 docker compose --env-file .env.prod -f docker-compose.prod.yml ps
 curl -I https://<dashboard-host>/up
 curl -I https://<portal-host>/
+curl -I https://<kiosk-host>/            # only if deployed
 ```
 
 `app` and `nginx` should report `healthy`. `face-recognition` loads a large
@@ -246,8 +255,31 @@ The application is running but not yet usable. Log in at
       cannot check in at all.
 - [ ] **Configure real mail.** `MAIL_MAILER=log` discards everything, which
       means password reset emails are never delivered.
-- [ ] **Confirm feature toggles** — leave, payroll, shifts and breaks are each
-      switchable and hide their UI when off.
+- [ ] **Confirm feature toggles** — leave, payroll, shifts, breaks and the kiosk
+      are each switchable and hide their UI when off.
+
+If you are deploying an attendance terminal, also:
+
+- [ ] **Turn on *Terminal Absensi (Kiosk)*** under *Pengaturan Fitur*. It ships
+      off, and every kiosk endpoint answers 404 until it is on.
+- [ ] **Issue a token per terminal** and pair each one:
+      `docker compose --env-file .env.prod -f docker-compose.prod.yml exec app \
+      php artisan kiosk:register "Lobi Utama" --location="Lantai 1"`.
+      It is printed once and stored only as a hash.
+- [ ] **Restrict each terminal to the office network** once its public address
+      is known: re-issue with `--ip=<address-or-CIDR>`. Until then the token
+      works from anywhere, and **the kiosk does not use GPS** — a wall-mounted
+      tablet has no satellite receiver, so the allowlist is the only location
+      control it has. `docker/nginx.prod.conf.template` carries a commented
+      `allow`/`deny` block if you would rather enforce it at the edge.
+- [ ] **Enrol every employee who will use the terminal.** The kiosk identifies
+      against enrolled faces only; an unenrolled employee is simply not
+      recognised.
+- [ ] **Watch the first day's scans.** `KIOSK_IDENTIFY_THRESHOLD` and
+      `KIOSK_IDENTIFY_MARGIN` are set conservatively. Frequent "wajah tidak
+      dikenali" means the threshold is too tight; any mistaken identity at all
+      means it is too loose and the margin should go up. Re-enrol poor
+      reference photos before touching the numbers — they matter more.
 
 ---
 

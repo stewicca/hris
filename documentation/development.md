@@ -85,6 +85,37 @@ warning the first time.
 > portal against a native backend, either run the container stack alongside it,
 > or change the proxy target in `frontend/apps/employee/vite.config.ts`.
 
+### Attendance kiosk
+
+The unattended terminal is a second standalone SPA, also outside `composer dev`:
+
+```bash
+npm run dev:kiosk        # https://localhost:5175
+```
+
+Same HTTPS reason as the portal, but for the camera rather than geolocation:
+`getUserMedia` is only granted on a secure origin. It proxies `/api` to port
+8080 with the same caveat as the portal.
+
+Three things must be true before it will scan, and none of them are in `.env` —
+see [Attendance configuration](#4-attendance-configuration) for the first two:
+
+1. the kiosk feature toggle is on,
+2. a device token has been issued and pasted into the terminal's pairing screen,
+3. the face service is reachable.
+
+The kiosk fails closed on the third: with the service down it shows *"Layanan
+pengenalan wajah sedang tidak tersedia"* and refuses to capture, rather than
+letting somebody pose for a scan that was never going to resolve.
+
+> **Testing from another machine is the one case that bites.** Opening the
+> terminal over `http://<lan-ip>:5175` blocks the camera silently — no error
+> dialog, just a preview that never starts. It must be `https://`, and the
+> self-signed certificate has to be accepted for that exact origin. The same
+> applies to the dashboard if you want to enrol a face from a second machine:
+> put it behind TLS too, or enrol from `localhost`, which browsers already
+> treat as secure.
+
 ---
 
 ## 2. Container setup
@@ -150,6 +181,36 @@ GPS integrity thresholds (`GPS_MAX_ACCURACY_METERS`, `GPS_MAX_AGE_SECONDS`) do
 live in `.env`. Raise them if a desktop browser's coarse location is being
 rejected during testing.
 
+### Kiosk terminal
+
+Off by default. Switch **Terminal Absensi (Kiosk)** on under *Pengaturan Fitur*,
+then issue a token for each physical terminal:
+
+```bash
+php artisan kiosk:register "Lobi Utama" --location="Lantai 1"
+```
+
+The token is printed once and stored only as a SHA-256 hash, so a lost one is
+re-issued rather than recovered. Paste it into the terminal's pairing screen; it
+lives in that browser's `localStorage` and travels as an `X-Kiosk-Token` header
+— never in the URL, where it would be visible on a screen strangers stand in
+front of and recorded in nginx's access log.
+
+`--ip=<address-or-CIDR>` restricts a terminal to a network, and is the location
+control for the kiosk. **GPS is not used on this path at all**: a tablet bolted
+to a wall has no satellite receiver, so its browser reports a coarse Wi-Fi or
+IP-derived position that the accuracy threshold rejects every time. The
+allowlist lives in the `kiosk_devices` table and can be changed without a
+redeploy, so leaving it empty until the office address is known is fine.
+
+The terminal identifies against the whole roster (1:N) rather than confirming an
+already-authenticated employee (1:1), so it uses its own, stricter thresholds:
+`KIOSK_IDENTIFY_THRESHOLD` and `KIOSK_IDENTIFY_MARGIN`. The margin is how much
+closer the best match must be than the runner-up before a name is committed —
+below it the scan is refused as ambiguous rather than guessed. **Enrol at least
+two faces when testing**; with only one there is no runner-up and that guard is
+never exercised.
+
 ---
 
 ## 5. Tests and checks
@@ -190,18 +251,26 @@ never touched.
 ## 6. Frontend layout
 
 ```
-resources/js/            Dashboard — Inertia pages, built by the root Vite config
-frontend/apps/employee/  Employee portal — standalone SPA
-frontend/packages/shared/ Code shared between the two
+resources/js/             Dashboard — Inertia pages, built by the root Vite config
+frontend/apps/employee/   Employee portal — standalone SPA
+frontend/apps/kiosk/      Attendance terminal — standalone SPA
+frontend/packages/shared/ Code shared between all three
 ```
 
-npm workspaces link them, so a single `npm install` at the root covers all
-three. Build them separately:
+npm workspaces link them, so a single `npm install` at the root covers
+everything. Build them separately:
 
 ```bash
 npm run build            # dashboard -> public/build
 npm run build:employee   # portal    -> frontend/apps/employee/dist
+npm run build:kiosk      # kiosk     -> frontend/apps/kiosk/dist
 ```
+
+`frontend/packages/shared/src/face.ts` holds the camera and passive-liveness
+helpers, and all three surfaces that use a camera — dashboard enrolment, portal
+check-in, kiosk — go through it rather than each rolling their own. Its
+MediaPipe model is fetched from a CDN on first use, so a browser with no
+internet access will show a preview whose face guide never activates.
 
 ### Wayfinder
 
@@ -228,3 +297,9 @@ The generated directories are gitignored. If TypeScript complains that
 | `@/actions/...` not found in TypeScript | Wayfinder output missing — see above. |
 | Geolocation blocked in the portal | Needs HTTPS. `npm run dev:employee` already serves TLS; accept the self-signed certificate. |
 | Frontend change not visible | The build is stale. Run `npm run build` or keep `npm run dev` running. |
+| Kiosk camera never starts | The origin is not secure. Use `https://`, and accept the certificate for that exact host — `http://<lan-ip>:5175` fails silently. |
+| Kiosk returns 404 on every endpoint | The kiosk feature toggle is off. A disabled module is made to look like it never existed. |
+| Kiosk returns 401 | No token, or one that was never issued. Re-run `php artisan kiosk:register`. |
+| Kiosk returns 403 | The device has an IP allowlist that the request address does not match. |
+| Kiosk face guide never turns green | MediaPipe's model could not be fetched from the CDN. Check the Network tab. |
+| Asset URLs lose their port behind a TLS proxy | The proxy is passing nginx's `$host`, which strips the port. Pass `$http_host` instead, or Laravel builds `https://host/build/...` and the browser reports it as a CORS failure. |

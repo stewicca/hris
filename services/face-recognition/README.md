@@ -6,6 +6,18 @@ the Laravel `app` container over the compose network — it is **never** exposed
 to end users. Laravel owns authentication and authorization; this service is
 trusted because it sits on the private `hris_network`.
 
+Two callers use it differently. The dashboard and the employee portal know who
+the employee is from their session, so they enroll through `/embed` and confirm
+through `/verify` — a 1:1 comparison. The kiosk terminal has no session to tell
+it who is standing in front of the camera, so it calls `/embed` for the probe
+and compares the result against every enrolled employee **in Laravel** (1:N).
+
+That N-way search is deliberately not in this service. The embeddings already
+live in MySQL, the arithmetic is one dot product over 512 floats, and keeping
+the decision rules in PHP puts them under the test suite that guards the rest of
+attendance — rather than splitting them across two languages and two deploy
+artifacts.
+
 ## Endpoints
 
 | Method | Path       | Purpose                                                   |
@@ -36,15 +48,24 @@ trusted because it sits on the private `hris_network`.
 `liveness` is `"real" | "spoof" | "unknown"`. The current engine uses a
 conservative Laplacian-sharpness heuristic that flags flat print/screen
 captures as `"spoof"`. `"unknown"` is treated as a soft pass by Laravel — the
-hard anti-buddy-punching guarantee comes from the 1:1 ArcFace match plus the
-GPS geofence enforced upstream. A trained MiniFASNet ONNX model can be dropped
-into `face_engine._assess_liveness` later.
+hard anti-buddy-punching guarantee comes from the ArcFace match plus whatever
+the caller enforces around it, and that differs by caller: the employee portal
+adds the GPS geofence, while the kiosk terminal — which has no usable GPS,
+being a fixed device — adds a stricter 1:N threshold with a runner-up margin, a
+per-device token, and an optional network allowlist. A trained MiniFASNet ONNX
+model can be dropped into `face_engine._assess_liveness` later.
 
 ## Configuration
 
 | Env var                    | Default | Meaning                                                       |
 | -------------------------- | ------- | ------------------------------------------------------------- |
 | `FACE_DISTANCE_THRESHOLD`  | `0.5`   | Cosine distance below which two embeddings are the same face. |
+
+This threshold governs `/verify` only. The kiosk's 1:N thresholds
+(`KIOSK_IDENTIFY_THRESHOLD`, `KIOSK_IDENTIFY_MARGIN`) are enforced in Laravel
+and are set on the `app` container, not here — a 1:N search gets one chance to
+be wrong per enrolled employee, so its bar is deliberately higher than this
+one's.
 
 ## Models
 
