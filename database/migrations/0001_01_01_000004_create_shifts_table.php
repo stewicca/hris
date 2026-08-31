@@ -9,9 +9,10 @@ return new class extends Migration
     /**
      * Named work-shift definitions (e.g. "Pagi 08-17", "Malam 22-06").
      *
-     * Each shift owns its own office hours, late threshold, grace period and
-     * optional break window. Employees reference a default shift via
-     * employees.shift_id; per-date overrides live in employee_schedules.
+     * Each shift owns its own office hours, late threshold, grace period,
+     * optional break window and optional salary-deduction ladders. Employees
+     * reference a default shift via employees.shift_id; per-date overrides
+     * live in employee_schedules.
      */
     public function up(): void
     {
@@ -25,6 +26,9 @@ return new class extends Migration
             $table->boolean('break_enabled')->default(false);
             $table->time('break_start')->nullable();
             $table->time('break_end')->nullable();
+            // Optional per-shift override of the payroll deduction ladders.
+            // Null means this shift follows the installation-wide rules.
+            $table->json('deduction_rules')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

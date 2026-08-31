@@ -9,11 +9,13 @@ import {
     Settings2,
     SlidersHorizontal,
     Users,
+    Wallet,
 } from 'lucide-react';
 import { index as attendanceSettingsIndex } from '@/actions/App/Http/Controllers/AttendanceSettingController';
 import { index as featureSettingsIndex } from '@/actions/App/Http/Controllers/FeatureSettingController';
 import { index as leavesIndex } from '@/actions/App/Http/Controllers/Leave/LeaveController';
 import { index as masterDataIndex } from '@/actions/App/Http/Controllers/MasterData/MasterDataController';
+import { index as payrollDeductionSettingsIndex } from '@/actions/App/Http/Controllers/PayrollDeductionSettingController';
 import { index as shiftIndex } from '@/actions/App/Http/Controllers/Shifts/ShiftController';
 import { index as workCalendarIndex } from '@/actions/App/Http/Controllers/WorkCalendarController';
 import AppLogo from '@/components/app-logo';
@@ -75,6 +77,11 @@ const mainNavItems: NavItem[] = [
         icon: Settings2,
     },
     {
+        title: 'Potongan Gaji',
+        href: payrollDeductionSettingsIndex.url(),
+        icon: Wallet,
+    },
+    {
         title: 'Pengaturan Fitur',
         href: featureSettingsIndex.url(),
         icon: SlidersHorizontal,
@@ -87,7 +94,8 @@ export function AppSidebar() {
     const items = mainNavItems.filter(
         (item) =>
             (item.title !== 'Cuti' || features?.leave !== false) &&
-            (item.title !== 'Shift' || features?.shift !== false),
+            (item.title !== 'Shift' || features?.shift !== false) &&
+            (item.title !== 'Potongan Gaji' || features?.payroll !== false),
     );
 
     return (

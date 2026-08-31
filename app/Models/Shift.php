@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PayrollDeductionSettings;
 use Database\Factories\ShiftFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ class Shift extends Model
         'break_enabled',
         'break_start',
         'break_end',
+        'deduction_rules',
         'is_active',
     ];
 
@@ -30,6 +32,7 @@ class Shift extends Model
             'break_enabled' => 'boolean',
             'is_active' => 'boolean',
             'grace_minutes' => 'integer',
+            'deduction_rules' => 'array',
         ];
     }
 
@@ -55,5 +58,27 @@ class Shift extends Model
     public function schedules(): HasMany
     {
         return $this->hasMany(EmployeeSchedule::class);
+    }
+
+    /**
+     * Whether this shift carries its own salary-deduction ladders instead of
+     * following the installation-wide ones.
+     */
+    public function hasOwnDeductionRules(): bool
+    {
+        return is_array($this->deduction_rules);
+    }
+
+    /**
+     * The deduction ladders that apply to this shift: its own when it
+     * overrides, otherwise the installation-wide set.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function deductionRules(): array
+    {
+        return $this->hasOwnDeductionRules()
+            ? PayrollDeductionSettings::normalize($this->deduction_rules)
+            : PayrollDeductionSettings::globalRules();
     }
 }

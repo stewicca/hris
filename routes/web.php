@@ -7,6 +7,7 @@ use App\Http\Controllers\Employees\EmployeeController;
 use App\Http\Controllers\FeatureSettingController;
 use App\Http\Controllers\Leave\LeaveController;
 use App\Http\Controllers\MasterData\MasterDataController;
+use App\Http\Controllers\PayrollDeductionSettingController;
 use App\Http\Controllers\Salary\SalaryController;
 use App\Http\Controllers\Shifts\ShiftController;
 use App\Http\Controllers\WorkCalendarController;
@@ -41,6 +42,10 @@ Route::middleware(['auth', EnsureUserIsAdmin::class])->group(function () {
         Route::get('salaries/{salary}/print', [SalaryController::class, 'print'])->name('salaries.print');
         Route::post('salaries/{salary}/mark-paid', [SalaryController::class, 'markPaid'])->name('salaries.mark-paid');
         Route::delete('salaries/{salary}', [SalaryController::class, 'destroy'])->name('salaries.destroy');
+
+        Route::get('payroll-deduction-settings', [PayrollDeductionSettingController::class, 'index'])->name('payroll-deduction-settings.index');
+        Route::put('payroll-deduction-settings', [PayrollDeductionSettingController::class, 'update'])->name('payroll-deduction-settings.update');
+        Route::put('payroll-deduction-settings/shifts/{shift}', [PayrollDeductionSettingController::class, 'updateShift'])->name('payroll-deduction-settings.shifts.update');
     });
 
     Route::get('master-data', [MasterDataController::class, 'index'])->name('master-data.index');
