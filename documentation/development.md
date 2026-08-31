@@ -281,8 +281,25 @@ The result surfaces in three places:
 | Where | What |
 | --- | --- |
 | *Rekap Bulanan* on the employee page | one **Potongan** column per month |
-| The attendance CSV export | **Potongan** (a bare number, so the column sums) and **Rincian Potongan** |
+| The per-employee attendance export | **Potongan** (a bare number, so the column sums) and **Rincian Potongan** |
+| *Export Rekap* on the employees list | one row per employee for a date range, with a column per rule group |
 | A new payslip | one deduction component per rule group that fired |
+
+The two exports answer different questions and are deliberately shaped
+differently. The per-employee one is a day per row — it answers *which day was
+he late?*, which is what you need when somebody disputes a cut. The roster-wide
+recap is an employee per row and goes straight into a payroll sheet: it answers
+*what do I cut from each person this month?*
+
+The recap counts approved leave in its own **Cuti** column. Leave never collides
+with an attendance row — `attendance:mark-absentees` skips anyone whose leave
+covers the date — so without that column the counts would not add up to the
+**Hari Kerja** beside them. Two overlapping approved leaves still bill a day
+once. It lists everyone currently on the payroll plus anyone with attendance
+inside the range, so somebody who left mid-month is still paid for the half they
+worked; and the range is capped at
+`AttendanceRecapRequest::MAX_DAYS`, so one mistyped year cannot walk every
+attendance row in the installation.
 
 The payslip lines are computed in `SalaryController::store`, not read off the
 form — they are the one part of a payslip nobody types, and taking them from the
