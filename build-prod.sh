@@ -91,10 +91,32 @@ fi
 
 if [[ "$DO_SAVE" -eq 1 ]]; then
     echo "==> Saving images to hris-images.tar.gz ..."
-    "$ENGINE" save \
+
+    # `podman save a b c` does NOT save three images: without --multi-image-archive
+    # podman reads the extra names as further *tags for the first image*, and the
+    # archive silently ships one image wearing three names. Loading that on the
+    # server points every tag at the app image, so the nginx container starts
+    # php-fpm, nothing listens on port 80, and the site is down. `docker save`
+    # takes several images natively and rejects the flag, so only pass it to podman.
+    SAVE_FLAGS=()
+    if [[ "$(basename "$ENGINE")" == "podman" ]]; then
+        SAVE_FLAGS+=(--multi-image-archive)
+    fi
+
+    "$ENGINE" save "${SAVE_FLAGS[@]}" \
         localhost/hris-app:prod \
         localhost/hris-nginx:prod \
         localhost/hris-face-recognition:prod | gzip > hris-images.tar.gz
+
+    # An archive that lost an image still gzips cleanly, so check the manifest
+    # rather than the exit status: every tag must map to a distinct config.
+    manifest="$(tar -xzOf hris-images.tar.gz manifest.json)"
+    configs="$(printf '%s' "$manifest" | tr ',' '\n' | grep -c '"Config"' || true)"
+    if [[ "$configs" -ne 3 ]]; then
+        echo "hris-images.tar.gz holds $configs image(s), expected 3; refusing to ship it" >&2
+        exit 70
+    fi
+
     echo "    Transfer with: scp hris-images.tar.gz <your-server>:~/hris/"
     echo "    Then on the server: ./update-prod.sh --load hris-images.tar.gz"
 fi
