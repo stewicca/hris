@@ -670,3 +670,56 @@ it('fail-closes (rejects) when the face service is unreachable', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors('image');
 });
+
+it('forbids an inactive employee from recording attendance events', function () {
+    $this->employee->update(['status' => 'inactive']);
+
+    $this->actingAs($this->user)
+        ->postJson('/api/attendance/event', gpsPayload())
+        ->assertForbidden();
+});
+
+it('treats an excused day (sick or permit) as complete with no next action', function () {
+    Attendance::factory()->create([
+        'employee_id' => $this->employee->id,
+        'date' => today(),
+        'status' => 'sick',
+        'check_in' => null,
+        'check_out' => null,
+    ]);
+
+    $this->actingAs($this->user)
+        ->getJson('/api/attendance/today')
+        ->assertOk()
+        ->assertJsonPath('next_action', null);
+});
+
+it('completes yesterday open overnight shift when checking out after midnight', function () {
+    Setting::set('attendance_shift_enabled', true);
+    Setting::set('attendance_break_enabled', false);
+
+    $nightShift = Shift::factory()->create([
+        'name' => 'Shift Malam',
+        'check_in' => '22:00:00',
+        'check_out' => '06:00:00',
+        'late_threshold' => '22:10:00',
+        'break_enabled' => false,
+    ]);
+    $this->employee->update(['shift_id' => $nightShift->id]);
+
+    $yesterdayAttendance = Attendance::factory()->create([
+        'employee_id' => $this->employee->id,
+        'shift_id' => $nightShift->id,
+        'date' => today()->subDay(),
+        'check_in' => '22:00:00',
+        'check_out' => null,
+        'status' => 'present',
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson('/api/attendance/event', gpsPayload(['type' => 'check_out']))
+        ->assertCreated();
+
+    expect($yesterdayAttendance->fresh()->check_out)->not->toBeNull()
+        ->and(Attendance::where('employee_id', $this->employee->id)->count())->toBe(1);
+});

@@ -2,6 +2,12 @@
 
 namespace App\Http\Controllers\Employees;
 
+use App\Actions\Attendance\ExportAttendanceRecapCsv;
+use App\Actions\Attendance\ExportEmployeeAttendanceCsv;
+use App\Actions\Employees\CreateEmployee;
+use App\Actions\Employees\DeleteEmployee;
+use App\Actions\Employees\ResetEmployeePassword;
+use App\Actions\Employees\UpdateEmployee;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Employees\AttendanceRecapRequest;
 use App\Http\Requests\Employees\StoreEmployeeRequest;
@@ -11,26 +17,15 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Shift;
-use App\Models\User;
 use App\Support\AttendanceDeduction;
-use App\Support\AttendanceRecap;
-use App\Support\UsernameGenerator;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmployeeController extends Controller
 {
-    /**
-     * How many times a create is retried when a generated value collides.
-     */
-    private const int CREATE_ATTEMPTS = 3;
-
     public function index(): Response
     {
         $employees = Employee::query()
@@ -54,63 +49,16 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function store(StoreEmployeeRequest $request): RedirectResponse
+    public function store(StoreEmployeeRequest $request, CreateEmployee $createEmployee): RedirectResponse
     {
-        $plainPassword = Str::password(12, symbols: false);
-
-        $this->createEmployeeWithAccount($request, $plainPassword);
+        $plainPassword = $createEmployee->handle(
+            validated: $request->validated(),
+            isAdmin: $request->boolean('is_admin'),
+            annualLeaveQuota: $request->filled('annual_leave_quota') ? $request->integer('annual_leave_quota') : null,
+        );
 
         return to_route('employees.index')
             ->with('generated_password', $plainPassword);
-    }
-
-    /**
-     * Write the employee and the login account it belongs to in one
-     * transaction, retrying when a generated value loses a race.
-     *
-     * Both rows go in together because a failure after the user row exists
-     * would otherwise strand a login with no employee behind it.
-     *
-     * The username and the employee number are each derived from a read that
-     * cannot see another request's uncommitted rows, so two creates running
-     * at the same moment can derive the same value and collide on a unique
-     * index. The row lock on the employee number covers the common case;
-     * retrying covers what a lock cannot — a username derived from an
-     * identical name, and the very first employee, where there is no row to
-     * lock yet. Each retry re-derives both against what the winner has since
-     * committed.
-     *
-     * A collision retrying cannot resolve — a duplicate email that slipped
-     * past validation, say — exhausts the attempts and rethrows.
-     */
-    private function createEmployeeWithAccount(StoreEmployeeRequest $request, string $plainPassword): void
-    {
-        foreach (range(1, self::CREATE_ATTEMPTS) as $attempt) {
-            try {
-                DB::transaction(function () use ($request, $plainPassword): void {
-                    $user = User::create([
-                        'name' => $request->name,
-                        'username' => UsernameGenerator::generate($request->name),
-                        'email' => $request->email,
-                        'password' => Hash::make($plainPassword),
-                        'is_admin' => $request->boolean('is_admin'),
-                    ]);
-
-                    Employee::create([
-                        ...$request->validated(),
-                        'user_id' => $user->id,
-                        'employee_number' => Employee::generateEmployeeNumber(),
-                        'annual_leave_quota' => $request->filled('annual_leave_quota') ? $request->integer('annual_leave_quota') : 12,
-                    ]);
-                });
-
-                return;
-            } catch (UniqueConstraintViolationException $e) {
-                if ($attempt === self::CREATE_ATTEMPTS) {
-                    throw $e;
-                }
-            }
-        }
     }
 
     public function show(Employee $employee): Response
@@ -131,8 +79,6 @@ class EmployeeController extends Controller
 
         $monthlyRecap = $employee->attendances()
             ->where('date', '>=', now()->startOfMonth()->subMonths(11))
-            // Each row is priced against the shift it snapshotted, so loading
-            // them here keeps a year of recap off one query per day.
             ->with('shift')
             ->orderBy('date', 'desc')
             ->get()
@@ -171,97 +117,18 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function attendanceExport(Employee $employee): StreamedResponse
+    public function attendanceExport(Employee $employee, ExportEmployeeAttendanceCsv $export): StreamedResponse
     {
-        $attendances = $employee->attendances()->with('shift')->orderBy('date', 'desc')->get();
-
-        $filename = 'kehadiran-'.Str::slug($employee->name).'-'.now()->format('Ymd').'.csv';
-
-        return response()->streamDownload(function () use ($attendances, $employee) {
-            $handle = fopen('php://output', 'w');
-
-            fwrite($handle, "\xEF\xBB\xBF");
-
-            fputcsv($handle, ['Nama', 'No. Karyawan', 'Tanggal', 'Masuk', 'Pulang', 'Istirahat Mulai', 'Istirahat Selesai', 'Status', 'Potongan', 'Rincian Potongan']);
-
-            foreach ($attendances as $a) {
-                $deduction = AttendanceDeduction::for($a->setRelation('employee', $employee));
-
-                fputcsv($handle, [
-                    $employee->name,
-                    $employee->employee_number,
-                    $a->date->format('d/m/Y'),
-                    $a->check_in ?? '-',
-                    $a->check_out ?? '-',
-                    $a->break_start ?? '-',
-                    $a->break_end ?? '-',
-                    match ($a->status) {
-                        'present' => 'Hadir',
-                        'late' => 'Terlambat',
-                        'absent' => 'Absen',
-                        'sick' => 'Sakit',
-                        'permit' => 'Izin',
-                        default => $a->status,
-                    },
-                    // A bare number rather than the '-' the time columns use,
-                    // so the column still sums in a spreadsheet.
-                    $deduction->total,
-                    $deduction->reason() ?: '-',
-                ]);
-            }
-
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return $export->handle($employee);
     }
 
-    /**
-     * The roster-wide recap: one row per employee for a span of dates, with
-     * what that span cost them.
-     *
-     * The per-employee export above answers "which day was he late?"; this one
-     * answers "what do I cut from each person this month?", which is the
-     * question a payroll sheet actually asks.
-     */
-    public function attendanceRecapExport(AttendanceRecapRequest $request): StreamedResponse
+    public function attendanceRecapExport(AttendanceRecapRequest $request, ExportAttendanceRecapCsv $export): StreamedResponse
     {
-        $start = $request->date('start')->startOfDay();
-        $end = $request->date('end')->startOfDay();
-
-        $rows = AttendanceRecap::rows($start, $end, $request->input('department'));
-
-        $filename = 'rekap-kehadiran-'.$start->format('Ymd').'-'.$end->format('Ymd').'.csv';
-
-        return response()->streamDownload(function () use ($rows) {
-            $handle = fopen('php://output', 'w');
-
-            fwrite($handle, "\xEF\xBB\xBF");
-
-            fputcsv($handle, AttendanceRecap::COLUMNS);
-
-            foreach ($rows as $row) {
-                fputcsv($handle, [
-                    $row['name'],
-                    $row['employee_number'],
-                    $row['department'] ?? '-',
-                    $row['position'] ?? '-',
-                    $row['working_days'],
-                    $row['present'],
-                    $row['late'],
-                    $row['absent'],
-                    $row['excused'],
-                    $row['leave'],
-                    // Bare numbers, so every money column still sums in a
-                    // spreadsheet.
-                    $row['late_amount'],
-                    $row['early_leave_amount'],
-                    $row['break_overrun_amount'],
-                    $row['absent_amount'],
-                    $row['total_deduction'],
-                ]);
-            }
-
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return $export->handle(
+            start: $request->date('start')->startOfDay(),
+            end: $request->date('end')->startOfDay(),
+            department: $request->input('department'),
+        );
     }
 
     public function edit(Employee $employee): Response
@@ -274,46 +141,28 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function update(UpdateEmployeeRequest $request, Employee $employee): RedirectResponse
+    public function update(UpdateEmployeeRequest $request, Employee $employee, UpdateEmployee $updateEmployee): RedirectResponse
     {
-        $validated = $request->validated();
-        $validated['annual_leave_quota'] = $request->filled('annual_leave_quota')
-            ? $request->integer('annual_leave_quota')
-            : $employee->annual_leave_quota;
-
-        $employee->fill($validated);
-
-        if ($employee->isDirty('email') && $employee->user) {
-            $employee->user->update(['email' => $request->email]);
-        }
-
-        if ($employee->isDirty('name') && $employee->user) {
-            $employee->user->update(['name' => $request->name]);
-        }
-
-        if ($employee->user) {
-            $employee->user->update(['is_admin' => $request->boolean('is_admin')]);
-        }
-
-        $employee->save();
+        $updateEmployee->handle(
+            employee: $employee,
+            validated: $request->validated(),
+            isAdmin: $request->boolean('is_admin'),
+            annualLeaveQuota: $request->filled('annual_leave_quota') ? $request->integer('annual_leave_quota') : null,
+        );
 
         return to_route('employees.index');
     }
 
-    public function destroy(Employee $employee): RedirectResponse
+    public function destroy(Request $request, Employee $employee, DeleteEmployee $deleteEmployee): RedirectResponse
     {
-        $employee->delete();
+        $deleteEmployee->handle($employee, $request->user());
 
         return to_route('employees.index');
     }
 
-    public function resetPassword(Employee $employee): RedirectResponse
+    public function resetPassword(Employee $employee, ResetEmployeePassword $resetPassword): RedirectResponse
     {
-        $plainPassword = Str::password(12, symbols: false);
-
-        $employee->user->update([
-            'password' => Hash::make($plainPassword),
-        ]);
+        $plainPassword = $resetPassword->handle($employee);
 
         return back()->with('generated_password', $plainPassword);
     }

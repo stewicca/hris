@@ -1,13 +1,27 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
+    "name": "@hris/dashboard",
     "private": true,
     "type": "module",
     "workspaces": [
-        "frontend/apps/*",
-        "frontend/packages/*"
+        "apps/*",
+        "packages/*"
     ],
+    "nx": {
+        "includedScripts": [
+            "build",
+            "build:ssr",
+            "dev",
+            "format",
+            "format:check",
+            "lint",
+            "lint:check",
+            "types:check"
+        ]
+    },
     "scripts": {
         "build": "vite build",
+        "build:all": "nx run-many -t build",
         "build:ssr": "vite build && vite build --ssr",
         "dev": "vite",
         "dev:employee": "npm run dev --workspace=@hris/employee",
@@ -18,7 +32,8 @@
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
-        "types:check": "tsc --noEmit"
+        "types:check": "tsc --noEmit",
+        "types:check:all": "nx run-many -t types:check"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",
@@ -31,6 +46,7 @@
         "eslint-plugin-import": "^2.32.0",
         "eslint-plugin-react": "^7.37.3",
         "eslint-plugin-react-hooks": "^7.0.0",
+        "nx": "^24.0.5",
         "prettier": "^3.4.2",
         "prettier-plugin-tailwindcss": "^0.6.11",
         "shadcn": "^4.0.5",

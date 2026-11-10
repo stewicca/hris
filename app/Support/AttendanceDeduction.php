@@ -47,9 +47,9 @@ final class AttendanceDeduction
 
     /**
      * @param  array<string, array{minutes: int|null, amount: int}>  $lines  Keyed by
-     *                                                                      rule group, in the order {@see PayrollDeductionSettings::GROUPS}
-     *                                                                      declares. Groups that cost nothing are absent entirely.
-     *                                                                      `minutes` is null for absence, which is counted in days.
+     *                                                                       rule group, in the order {@see PayrollDeductionSettings::GROUPS}
+     *                                                                       declares. Groups that cost nothing are absent entirely.
+     *                                                                       `minutes` is null for absence, which is counted in days.
      */
     private function __construct(
         public readonly array $lines,

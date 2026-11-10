@@ -200,6 +200,10 @@ class Attendance extends Model
      */
     public function nextExpectedAction(): ?AttendanceEventType
     {
+        if (in_array($this->status, self::EXCUSED_STATUSES, true)) {
+            return null;
+        }
+
         if ($this->check_out !== null) {
             return null;
         }
@@ -219,6 +223,37 @@ class Attendance extends Model
         }
 
         return AttendanceEventType::CheckOut;
+    }
+
+    /**
+     * Resolve the effective daily status for a roster row.
+     */
+    public static function effectiveStatus(?self $attendance, bool $isWorkingDay, bool $onLeave): string
+    {
+        if ($attendance?->status) {
+            return $attendance->status;
+        }
+
+        return match (true) {
+            ! $isWorkingDay => 'holiday',
+            $onLeave => 'leave',
+            default => 'absent',
+        };
+    }
+
+    /**
+     * Human-readable Indonesian label for an attendance status.
+     */
+    public static function statusLabel(string $status): string
+    {
+        return match ($status) {
+            'present' => 'Hadir',
+            'late' => 'Terlambat',
+            'sick' => 'Sakit',
+            'permit' => 'Izin',
+            'absent' => 'Absen',
+            default => 'Tidak Hadir',
+        };
     }
 
     /**

@@ -21,10 +21,10 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-script
 # Copy root manifest + lockfile, plus every workspace package.json so that
 # `npm ci` can resolve workspace symlinks (e.g. @hris/shared) and install
 # workspace-scoped devDependencies before the full source is copied.
-COPY package.json package-lock.json ./
-COPY frontend/apps/employee/package.json frontend/apps/employee/
-COPY frontend/apps/kiosk/package.json frontend/apps/kiosk/
-COPY frontend/packages/shared/package.json frontend/packages/shared/
+COPY package.json package-lock.json nx.json ./
+COPY apps/employee/package.json apps/employee/
+COPY apps/kiosk/package.json apps/kiosk/
+COPY packages/shared/package.json packages/shared/
 RUN npm ci
 
 COPY . .
@@ -36,7 +36,7 @@ ENV VITE_APP_NAME=${VITE_APP_NAME}
 # NOTE: the open-file limit must be raised via `podman build --ulimit nofile`
 # because rootless buildah caps the hard limit at 1024, which esbuild blows
 # past while resolving tsconfig/workspaces.
-RUN npm run build && npm run build:employee && npm run build:kiosk
+RUN npm run build:all
 
 # =============================================================================
 # Stage 2: PHP-FPM application (Laravel backend)
@@ -103,7 +103,7 @@ COPY docker/nginx.prod.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=frontend /app/public /var/www/html/public
 
 # Employee SPA static build
-COPY --from=frontend /app/frontend/apps/employee/dist /var/www/employee
+COPY --from=frontend /app/apps/employee/dist /var/www/employee
 
 # Kiosk terminal static build
-COPY --from=frontend /app/frontend/apps/kiosk/dist /var/www/kiosk
+COPY --from=frontend /app/apps/kiosk/dist /var/www/kiosk

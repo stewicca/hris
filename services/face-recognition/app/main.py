@@ -20,7 +20,7 @@ from typing import Literal
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from app.face_engine import FaceEngine, read_upload
+from app.face_engine import FaceEngine
 
 THRESHOLD = float(os.environ.get("FACE_DISTANCE_THRESHOLD", "0.5"))
 
@@ -49,15 +49,16 @@ class VerifyResponse(BaseModel):
 
 
 @app.post("/embed", response_model=EmbedResponse)
-async def embed(image: UploadFile = File(...)) -> EmbedResponse:
+def embed(image: UploadFile = File(...)) -> EmbedResponse:
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=422, detail="image must be an image/* file")
-    result = engine.embed(await _read(image))
+    image.file.seek(0)
+    result = engine.embed(image.file.read())
     return EmbedResponse(embedding=result.embedding, detected=result.face_detected, liveness=result.liveness)
 
 
 @app.post("/verify", response_model=VerifyResponse)
-async def verify(
+def verify(
     image: UploadFile = File(...),
     reference_embedding: str = Form(""),
 ) -> VerifyResponse:
@@ -80,17 +81,11 @@ async def verify(
             detail=f"reference_embedding must have 512 elements, got {len(reference)}",
         )
 
-    result = engine.verify(await _read(image), reference)
+    image.file.seek(0)
+    result = engine.verify(image.file.read(), reference)
     return VerifyResponse(
         verified=result.verified,
         distance=result.distance,
         liveness=result.liveness,
         detected=result.face_detected,
     )
-
-
-async def _read(upload: UploadFile) -> bytes:
-    """Read an UploadFile robustly across sync/async storage backends."""
-    upload.file.seek(0)
-    data = read_upload(upload)
-    return data

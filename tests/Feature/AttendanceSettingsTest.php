@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Employee;
-use App\Models\EmployeeSchedule;
 use App\Models\Setting;
 use App\Models\Shift;
 use App\Models\User;
@@ -201,22 +200,6 @@ it('ignores the assigned shift while shift mode is off', function () {
     $employee = Employee::factory()->create(['shift_id' => $shift->id]);
 
     expect(AttendanceSettings::scheduleFor($employee, today())['check_in'])->toBe('08:00');
-});
-
-it('prefers a per-date schedule over the default shift', function () {
-    Setting::set('attendance_shift_enabled', true);
-
-    $defaultShift = Shift::factory()->create(['check_in' => '08:00:00']);
-    $eveningShift = Shift::factory()->create(['check_in' => '14:00:00', 'check_out' => '22:00:00']);
-
-    $employee = Employee::factory()->create(['shift_id' => $defaultShift->id]);
-    EmployeeSchedule::factory()->create([
-        'employee_id' => $employee->id,
-        'shift_id' => $eveningShift->id,
-        'date' => today()->toDateString(),
-    ]);
-
-    expect(AttendanceSettings::scheduleFor($employee, today())['check_in'])->toBe('14:00');
 });
 
 it('reports the break window only while break tracking is enabled', function () {

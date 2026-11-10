@@ -33,11 +33,13 @@ yarn-error.log
 /.vscode
 /.zed
 
-# Frontend Monorepo
-frontend/apps/*/dist
-frontend/apps/*/dist-ssr
-frontend/packages/*/dist
-frontend/packages/*/dist-ssr
+# Nx & Frontend Monorepo
+/.nx/cache
+/.nx/workspace-data
+apps/*/dist
+apps/*/dist-ssr
+packages/*/dist
+packages/*/dist-ssr
 
 # Vite local env files
 .env.local
@@ -45,5 +47,7 @@ frontend/packages/*/dist-ssr
 .env.test.local
 .env.production.local
 
-# TypeScript build info cache
+# TypeScript & Python build cache
 *.tsbuildinfo
+__pycache__/
+*.pyc

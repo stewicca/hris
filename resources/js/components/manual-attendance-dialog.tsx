@@ -104,7 +104,9 @@ export function ManualAttendanceDialog({
                 ? {
                       check_in: form.check_in || null,
                       check_out: form.check_out || null,
-                      break_start: breakEnabled ? form.break_start || null : null,
+                      break_start: breakEnabled
+                          ? form.break_start || null
+                          : null,
                       break_end: breakEnabled ? form.break_end || null : null,
                   }
                 : {}),
@@ -190,7 +192,9 @@ export function ManualAttendanceDialog({
                                     <InputError message={errors.check_in} />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="check_out">Jam Pulang</Label>
+                                    <Label htmlFor="check_out">
+                                        Jam Pulang
+                                    </Label>
                                     <Input
                                         id="check_out"
                                         type="time"
@@ -242,14 +246,16 @@ export function ManualAttendanceDialog({
                                                 })
                                             }
                                         />
-                                        <InputError message={errors.break_end} />
+                                        <InputError
+                                            message={errors.break_end}
+                                        />
                                     </div>
                                 </div>
                             )}
 
                             <p className="text-xs text-muted-foreground">
-                                Terlambat atau tidak ditentukan otomatis dari jam
-                                masuk dan jadwal yang berlaku.
+                                Terlambat atau tidak ditentukan otomatis dari
+                                jam masuk dan jadwal yang berlaku.
                             </p>
                         </div>
                     ) : (

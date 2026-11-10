@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Settings\CreateHoliday;
+use App\Actions\Settings\DeleteHoliday;
+use App\Actions\Settings\UpdateWorkingDays;
 use App\Models\Holiday;
-use App\Models\Setting;
 use App\Support\WorkCalendar;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,19 +22,19 @@ class WorkCalendarController extends Controller
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(Request $request, UpdateWorkingDays $updateWorkingDays): RedirectResponse
     {
         $validated = $request->validate([
             'working_days' => ['required', 'array'],
             'working_days.*' => ['integer', 'between:1,7'],
         ]);
 
-        Setting::set('working_days', array_values(array_unique($validated['working_days'])));
+        $updateWorkingDays->handle($validated['working_days']);
 
         return back()->with('success', 'Hari kerja diperbarui.');
     }
 
-    public function storeHoliday(Request $request): RedirectResponse
+    public function storeHoliday(Request $request, CreateHoliday $createHoliday): RedirectResponse
     {
         $validated = $request->validate([
             'date' => [
@@ -47,16 +49,14 @@ class WorkCalendarController extends Controller
             'name' => ['required', 'string', 'max:100'],
         ]);
 
-        Holiday::create($validated);
-        WorkCalendar::forgetHolidayCache();
+        $createHoliday->handle($validated);
 
         return back()->with('success', 'Hari libur ditambahkan.');
     }
 
-    public function destroyHoliday(Holiday $holiday): RedirectResponse
+    public function destroyHoliday(Holiday $holiday, DeleteHoliday $deleteHoliday): RedirectResponse
     {
-        $holiday->delete();
-        WorkCalendar::forgetHolidayCache();
+        $deleteHoliday->handle($holiday);
 
         return back()->with('success', 'Hari libur dihapus.');
     }

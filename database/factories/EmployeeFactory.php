@@ -30,7 +30,7 @@ class EmployeeFactory extends Factory
             'department_id' => Department::factory(),
             'position_id' => Position::factory(),
             'hire_date' => fake()->dateTimeBetween('-5 years', 'now')->format('Y-m-d'),
-            'status' => fake()->randomElement(['active', 'inactive']),
+            'status' => 'active',
             'annual_leave_quota' => 12,
         ];
     }

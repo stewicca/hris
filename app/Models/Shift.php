@@ -53,14 +53,6 @@ class Shift extends Model
     }
 
     /**
-     * @return HasMany<EmployeeSchedule, $this>
-     */
-    public function schedules(): HasMany
-    {
-        return $this->hasMany(EmployeeSchedule::class);
-    }
-
-    /**
      * Whether this shift carries its own salary-deduction ladders instead of
      * following the installation-wide ones.
      */

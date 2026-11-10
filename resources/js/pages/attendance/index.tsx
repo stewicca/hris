@@ -359,7 +359,11 @@ export default function AttendanceIndex({
                                                         ]
                                                     }
                                                 >
-                                                    {STATUS_LABEL[record.status]}
+                                                    {
+                                                        STATUS_LABEL[
+                                                            record.status
+                                                        ]
+                                                    }
                                                 </Badge>
                                                 {record.recorded_manually && (
                                                     <span

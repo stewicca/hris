@@ -25,12 +25,27 @@ class Setting extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(fn (self $setting) => Cache::memo()->forget("setting:{$setting->key}"));
+        static::deleted(fn (self $setting) => Cache::memo()->forget("setting:{$setting->key}"));
+    }
+
     /**
-     * Read a setting value, falling back to the given default. Cached forever.
+     * Read a setting value, falling back to the given default. Cached forever
+     * and memoized per request. Wrapping in an array ensures null values also
+     * hit the cache instead of re-querying the database on every call.
      */
     public static function get(string $key, mixed $default = null): mixed
     {
-        return Cache::rememberForever("setting:{$key}", fn () => static::query()->find($key)?->value ?? $default);
+        $cached = Cache::memo()->rememberForever(
+            "setting:{$key}",
+            fn () => ['value' => static::query()->find($key)?->value],
+        );
+
+        return is_array($cached) && array_key_exists('value', $cached)
+            ? ($cached['value'] ?? $default)
+            : ($cached ?? $default);
     }
 
     /**
@@ -40,6 +55,6 @@ class Setting extends Model
     {
         static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
 
-        Cache::forget("setting:{$key}");
+        Cache::memo()->forget("setting:{$key}");
     }
 }

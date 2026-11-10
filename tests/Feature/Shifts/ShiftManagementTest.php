@@ -86,3 +86,14 @@ test('shift routes return 404 when the feature is disabled', function () {
 
     $this->get(route('shifts.index'))->assertNotFound();
 });
+
+test('admin can create an overnight shift where check_out is earlier on the clock than check_in', function () {
+    $this->post(route('shifts.store'), shiftPayload([
+        'name' => 'Shift Malam',
+        'check_in' => '22:00',
+        'check_out' => '06:00',
+        'late_threshold' => '22:10',
+    ]))->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(Shift::where('name', 'Shift Malam')->exists())->toBeTrue();
+});

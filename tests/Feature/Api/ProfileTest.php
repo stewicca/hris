@@ -69,3 +69,17 @@ it('rejects a password change with a wrong current password', function () {
 it('requires authentication to update the profile', function () {
     $this->putJson('/api/profile', ['phone' => '0812'])->assertUnauthorized();
 });
+
+it('hides face_embedding and face_photo_path in the employee payload', function () {
+    $this->employee->update([
+        'face_embedding' => array_fill(0, 512, 0.25),
+        'face_photo_path' => 'face-enrollment/secret.jpg',
+    ]);
+
+    $response = $this->actingAs($this->user)
+        ->getJson('/api/me')
+        ->assertOk();
+
+    expect($response->json('employee'))->not->toHaveKey('face_embedding')
+        ->and($response->json('employee'))->not->toHaveKey('face_photo_path');
+});

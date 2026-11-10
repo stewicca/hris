@@ -8,7 +8,6 @@ is comfortable for a single-office attendance workload.
 
 from __future__ import annotations
 
-import io
 from dataclasses import dataclass
 from typing import Literal
 
@@ -62,9 +61,9 @@ class FaceEngine:
         faces = self._app.get(frame)
         if not faces:
             return None
-        # Largest bounding box wins — handles the case where a background face
-        # is briefly visible alongside the subject.
-        return max(faces, key=lambda f: f.bbox[2] * f.bbox[3])
+        # Largest bounding box area (width * height) wins — handles the case
+        # where a background face is briefly visible alongside the subject.
+        return max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
 
     def _assess_liveness(self, frame: np.ndarray, face) -> LivenessResult:
         """Heuristic liveness check based on colour/texture cues.
@@ -142,9 +141,3 @@ class FaceEngine:
             liveness=liveness,
             face_detected=True,
         )
-
-
-def read_upload(upload_file) -> bytes:
-    """Read the raw bytes of a FastAPI UploadFile, draining any buffer."""
-    upload_file.file.seek(0, io.SEEK_SET)
-    return upload_file.file.read()

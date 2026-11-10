@@ -34,6 +34,7 @@ it('redacts credential-bearing request headers', function () {
     $this->withHeaders([
         'Cookie' => 'laravel_session=abc123deadbeef',
         'Authorization' => 'Bearer tok_abc123deadbeef',
+        'X-Kiosk-Token' => 'kiosk_secret_abc123deadbeef',
     ])->getJson('/api/status')->assertOk();
 
     $headers = ApiLog::latest('id')->first()->request_headers;
@@ -41,7 +42,8 @@ it('redacts credential-bearing request headers', function () {
 
     expect($flat)->not->toContain('abc123deadbeef')
         ->and($headers['cookie'])->toBe('[redacted]')
-        ->and($headers['authorization'])->toBe('[redacted]');
+        ->and($headers['authorization'])->toBe('[redacted]')
+        ->and($headers['x-kiosk-token'])->toBe('[redacted]');
 });
 
 it('reduces an uploaded file to a descriptor instead of storing its bytes', function () {

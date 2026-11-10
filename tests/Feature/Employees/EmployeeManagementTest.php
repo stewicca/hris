@@ -459,11 +459,35 @@ test('employee can be deleted', function () {
     expect(Employee::find($employee->id))->toBeNull();
 });
 
-test('employee deletion does not delete linked user', function () {
+test('employee deletion also deletes linked user account', function () {
     $linkedUser = User::factory()->create();
     $employee = Employee::factory()->create(['user_id' => $linkedUser->id]);
 
     $this->delete(route('employees.destroy', $employee));
 
-    expect(User::find($linkedUser->id))->not->toBeNull();
+    expect(User::find($linkedUser->id))->toBeNull();
+});
+
+test('admin cannot delete their own employee profile', function () {
+    $selfEmployee = Employee::factory()->create(['user_id' => auth()->id()]);
+
+    $this->delete(route('employees.destroy', $selfEmployee))
+        ->assertForbidden();
+
+    expect(Employee::find($selfEmployee->id))->not->toBeNull();
+});
+
+test('employee update rejects email already taken by another user account', function () {
+    $otherUser = User::factory()->create(['email' => 'taken@example.com']);
+    $linkedUser = User::factory()->create(['email' => 'original@example.com']);
+    $employee = Employee::factory()->create([
+        'user_id' => $linkedUser->id,
+        'email' => 'original@example.com',
+    ]);
+
+    $this->put(route('employees.update', $employee), [
+        'name' => $employee->name,
+        'email' => $otherUser->email,
+        'status' => 'active',
+    ])->assertSessionHasErrors('email');
 });

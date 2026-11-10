@@ -234,3 +234,34 @@ test('leave routes are hidden when the feature is disabled', function () {
 
     expect(Leave::where('employee_id', $employee->id)->count())->toBe(0);
 });
+
+test('leave store rejects overlapping leave dates', function () {
+    $employee = Employee::factory()->create();
+    Leave::factory()->create([
+        'employee_id' => $employee->id,
+        'type' => 'annual',
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'status' => 'pending',
+    ]);
+
+    $this->post(route('leaves.store'), [
+        'employee_id' => $employee->id,
+        'type' => 'sick',
+        'start_date' => '2026-06-11',
+        'end_date' => '2026-06-13',
+        'reason' => 'Tumpang tindih',
+    ])->assertSessionHasErrors('start_date');
+});
+
+test('leave store rejects inactive employee', function () {
+    $inactive = Employee::factory()->inactive()->create();
+
+    $this->post(route('leaves.store'), [
+        'employee_id' => $inactive->id,
+        'type' => 'annual',
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'reason' => 'Nonaktif',
+    ])->assertSessionHasErrors('employee_id');
+});

@@ -131,3 +131,24 @@ it('exposes the leave feature flag via attendance settings', function () {
         ->assertOk()
         ->assertJsonPath('leave_enabled', false);
 });
+
+it('rejects overlapping leave requests via api', function () {
+    $year = now()->year;
+    Leave::factory()->create([
+        'employee_id' => $this->employee->id,
+        'type' => 'annual',
+        'start_date' => "{$year}-04-01",
+        'end_date' => "{$year}-04-03",
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($this->user)
+        ->postJson('/api/leaves', [
+            'type' => 'permit',
+            'start_date' => "{$year}-04-02",
+            'end_date' => "{$year}-04-04",
+            'reason' => 'Bentrok',
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('start_date');
+});

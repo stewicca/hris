@@ -403,3 +403,14 @@ it('tells the terminal when the face service is down', function () {
         ->assertOk()
         ->assertJsonPath('face_service_operational', false);
 });
+
+it('does not write a scan photo to disk during identify before confirmation', function () {
+    Employee::factory()->create(['name' => 'Budi', 'face_embedding' => axis(0)]);
+    fakeEmbed(axis(0));
+
+    $this->withHeader('X-Kiosk-Token', $this->token)
+        ->postJson('/api/kiosk/identify', ['image' => scanPhoto()])
+        ->assertOk();
+
+    expect(Storage::disk('local')->allFiles('attendance-photos'))->toBeEmpty();
+});

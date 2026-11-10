@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\EnsureValidKioskDevice;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -71,8 +72,12 @@ class AppServiceProvider extends ServiceProvider
         // scans the whole office's ration during a shift change. Keyed per
         // device and set well above what one queue in front of one camera can
         // physically produce.
-        RateLimiter::for('kiosk', fn (Request $request) => Limit::perMinute(30)
-            ->by('kiosk|'.(string) $request->header('X-Kiosk-Token', $request->ip())));
+        RateLimiter::for('kiosk', function (Request $request) {
+            $device = $request->attributes->get(EnsureValidKioskDevice::ATTRIBUTE);
+
+            return Limit::perMinute(30)
+                ->by('kiosk|'.($device?->id ?? $request->ip()));
+        });
     }
 
     /**

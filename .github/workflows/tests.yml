@@ -50,7 +50,7 @@ jobs:
         run: php artisan key:generate
 
       - name: Build Assets
-        run: npm run build
+        run: npm run build:all
 
       - name: Tests
         run: ./vendor/bin/pest

@@ -54,6 +54,7 @@ class LogApiRequests
         'proxy-authorization',
         'x-csrf-token',
         'x-xsrf-token',
+        'x-kiosk-token',
     ];
 
     public function handle(Request $request, Closure $next): Response

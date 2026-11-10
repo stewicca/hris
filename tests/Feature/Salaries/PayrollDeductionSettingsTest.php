@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Employee;
-use App\Models\EmployeeSchedule;
 use App\Models\Setting;
 use App\Models\Shift;
 use App\Models\User;
@@ -441,27 +440,4 @@ it('ignores a shift override entirely while shift mode is off', function () {
     $rules = PayrollDeductionSettings::forEmployee($employee, today());
 
     expect(PayrollDeductionSettings::lateDeduction($rules, 20))->toBe(15000);
-});
-
-it('prefers the per-date shift ladder over the default shift', function () {
-    [$defaultShift, $employee] = shiftWithEmployee();
-
-    $defaultShift->update(['deduction_rules' => PayrollDeductionSettings::normalize(deductionPayload([
-        'late' => ['enabled' => true, 'basis' => 'check_in', 'tiers' => [['from_minutes' => 1, 'amount' => 10000]]],
-    ]))]);
-
-    $eveningShift = Shift::factory()->create([
-        'deduction_rules' => PayrollDeductionSettings::normalize(deductionPayload([
-            'late' => ['enabled' => true, 'basis' => 'check_in', 'tiers' => [['from_minutes' => 1, 'amount' => 77000]]],
-        ])),
-    ]);
-    EmployeeSchedule::factory()->create([
-        'employee_id' => $employee->id,
-        'shift_id' => $eveningShift->id,
-        'date' => today()->toDateString(),
-    ]);
-
-    $rules = PayrollDeductionSettings::forEmployee($employee, today());
-
-    expect(PayrollDeductionSettings::lateDeduction($rules, 5))->toBe(77000);
 });

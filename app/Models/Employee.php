@@ -36,6 +36,14 @@ class Employee extends Model
         'face_enrolled_at',
     ];
 
+    /**
+     * @var list<string>
+     */
+    protected $hidden = [
+        'face_embedding',
+        'face_photo_path',
+    ];
+
     public function casts(): array
     {
         return [
@@ -89,11 +97,6 @@ class Employee extends Model
         return $this->belongsTo(Shift::class);
     }
 
-    public function schedules(): HasMany
-    {
-        return $this->hasMany(EmployeeSchedule::class);
-    }
-
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
@@ -110,18 +113,12 @@ class Employee extends Model
     }
 
     /**
-     * The shift that applies to this employee on the given date. A per-date
-     * schedule override (rotation) wins over the default shift assignment.
+     * The shift that applies to this employee on the given date.
      * Returns null when no shift applies (global office hours are used).
      */
     public function shiftForDate(CarbonInterface $date): ?Shift
     {
-        return $this->schedules()
-            ->whereDate('date', $date->toDateString())
-            ->with('shift')
-            ->first()
-            ?->shift
-            ?? ($this->shift_id ? $this->shift : null);
+        return $this->shift_id ? $this->shift : null;
     }
 
     /**

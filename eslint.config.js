@@ -82,6 +82,7 @@ export default [
         ignores: [
             '.agents/**',
             '.claude/**',
+            '.nx/**',
             'skills/**',
             'vendor',
             'node_modules',

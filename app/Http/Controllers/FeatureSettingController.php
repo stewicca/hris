@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Setting;
+use App\Actions\Settings\UpdateFeatureSettings;
 use App\Support\FeatureSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,10 +22,7 @@ class FeatureSettingController extends Controller
         ]);
     }
 
-    /**
-     * Persist the feature toggles.
-     */
-    public function update(Request $request): RedirectResponse
+    public function update(Request $request, UpdateFeatureSettings $updateFeatures): RedirectResponse
     {
         $validated = $request->validate([
             'leave_enabled' => ['required', 'boolean'],
@@ -35,11 +32,7 @@ class FeatureSettingController extends Controller
             'kiosk_enabled' => ['required', 'boolean'],
         ]);
 
-        Setting::set('leave_enabled', (bool) $validated['leave_enabled']);
-        Setting::set('attendance_break_enabled', (bool) $validated['attendance_break_enabled']);
-        Setting::set('attendance_shift_enabled', (bool) $validated['attendance_shift_enabled']);
-        Setting::set('payroll_enabled', (bool) $validated['payroll_enabled']);
-        Setting::set('kiosk_enabled', (bool) $validated['kiosk_enabled']);
+        $updateFeatures->handle($validated);
 
         return back()->with('success', 'Pengaturan fitur berhasil diperbarui.');
     }

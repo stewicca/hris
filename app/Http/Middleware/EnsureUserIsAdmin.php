@@ -16,7 +16,7 @@ class EnsureUserIsAdmin
     public function handle(Request $request, Closure $next): Response
     {
         // ponytail: back-office is admin-only. Employees use the API portal
-        // (frontend/apps/employee), so they never need these web routes.
+        // (apps/employee), so they never need these web routes.
         abort_unless((bool) $request->user()?->is_admin, 403);
 
         return $next($request);

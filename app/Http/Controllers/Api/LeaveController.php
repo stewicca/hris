@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Leaves\SubmitLeave;
 use App\Http\Controllers\Controller;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class LeaveController extends Controller
 {
@@ -26,7 +25,7 @@ class LeaveController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, SubmitLeave $submitLeave): JsonResponse
     {
         $employee = $request->user()->employee;
 
@@ -41,22 +40,7 @@ class LeaveController extends Controller
             'reason' => ['required', 'string', 'max:500'],
         ]);
 
-        $days = Carbon::parse($validated['start_date'])->diffInDays($validated['end_date']) + 1;
-
-        if ($validated['type'] === 'annual') {
-            $remaining = $employee->annualLeaveSummary(Carbon::parse($validated['start_date'])->year)['remaining'];
-
-            if ($days > $remaining) {
-                throw ValidationException::withMessages([
-                    'end_date' => "Sisa cuti tahunan tidak cukup ({$remaining} hari tersisa).",
-                ]);
-            }
-        }
-
-        $leave = $employee->leaves()->create([
-            ...$validated,
-            'days' => $days,
-        ]);
+        $leave = $submitLeave->handle($employee, $validated);
 
         return response()->json(['leave' => $leave, 'message' => 'Pengajuan cuti berhasil dikirim.'], 201);
     }

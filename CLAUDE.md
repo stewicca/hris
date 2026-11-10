@@ -63,6 +63,8 @@ Domain-specific skills available. MUST activate relevant skill immediately when 
 
 ## Application Structure & Architecture
 
+- **Nx Polyglot Monorepo (Pattern C):** Root (`@hris/dashboard`) is Laravel 12 + Inertia React Admin; `apps/employee` (`@hris/employee`) & `apps/kiosk` (`@hris/kiosk`) are React SPAs; `packages/shared` (`@hris/shared`) is shared TS library; `services/face-recognition` (`@hris/face-recognition`) is Python FastAPI service. Orchestrate workspace tasks with `npx nx`.
+- **Laravel Action Pattern (Mandatory, 1 Action = 1 Purpose):** Put every discrete business operation / use-case in single-purpose Action class under `app/Actions/<Domain>/<ActionName>.php` with one public `handle(...)` method (SOLID Single Responsibility). Inject Actions via constructor or method DI. Keep Controllers skinny: validate via `FormRequest`/`Request`, call Action `handle(...)`, return HTTP/Inertia/JSON/Streamed response.
 - Keep existing directory structure; do not create new base folders without approval.
 - Do not change dependencies without approval.
 

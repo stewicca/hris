@@ -98,7 +98,11 @@ class PayrollDeductionSettings
     {
         $stored = Setting::get(self::KEY, []);
 
-        return self::normalize(is_array($stored) ? $stored : []);
+        if (! is_array($stored) || $stored === []) {
+            return self::DEFAULTS;
+        }
+
+        return self::normalize($stored);
     }
 
     /**

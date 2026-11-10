@@ -2,46 +2,21 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Auth\AuthenticateApiUser;
+use App\Actions\Auth\UpdateEmployeeProfile;
+use App\Actions\Auth\UpdateUserPassword;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    /**
-     * Handle login request.
-     */
-    public function login(Request $request)
+    public function login(Request $request, AuthenticateApiUser $authenticate)
     {
-        $request->validate([
-            'email' => ['required', 'string'],
-            'password' => ['required', 'string'],
-        ]);
-
-        $loginInput = $request->input('email');
-        $password = $request->input('password');
-
-        $fieldType = filter_var($loginInput, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
-
-        $credentials = [
-            $fieldType => $loginInput,
-            'password' => $password,
-        ];
-
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
-            throw ValidationException::withMessages([
-                'email' => [__('auth.failed')],
-            ]);
-        }
-
-        $request->session()->regenerate();
-
-        $user = Auth::user();
+        $user = $authenticate->handle($request);
 
         return response()->json([
             'message' => 'Login successful',
@@ -55,9 +30,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Get authenticated user profile.
-     */
     public function me(Request $request)
     {
         $user = $request->user();
@@ -77,10 +49,7 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Update the authenticated employee's own contact details.
-     */
-    public function updateProfile(Request $request)
+    public function updateProfile(Request $request, UpdateEmployeeProfile $updateProfile)
     {
         $employee = $request->user()?->employee;
 
@@ -88,31 +57,28 @@ class AuthController extends Controller
             return response()->json(['message' => 'No employee record'], 404);
         }
 
-        $employee->update($request->validate([
+        $validated = $request->validate([
             'phone' => ['nullable', 'string', 'max:30'],
-        ]));
+        ]);
+
+        $updateProfile->handle($employee, $validated);
 
         return response()->json(['employee' => $this->employeePayload($request->user())]);
     }
 
-    /**
-     * Change the authenticated user's password.
-     */
-    public function updatePassword(Request $request)
+    public function updatePassword(Request $request, UpdateUserPassword $updatePassword)
     {
         $request->validate([
             'current_password' => ['required', 'current_password'],
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
 
-        $request->user()->update(['password' => Hash::make($request->string('password'))]);
+        $updatePassword->handle($request->user(), $request->string('password')->value());
 
         return response()->json(['message' => 'Password updated']);
     }
 
     /**
-     * Shape the employee for the portal with department/position flattened to names.
-     *
      * @return array<string, mixed>|null
      */
     private function employeePayload(User $user): ?array
@@ -130,9 +96,6 @@ class AuthController extends Controller
         ];
     }
 
-    /**
-     * Log the user out of the application.
-     */
     public function logout(Request $request)
     {
         Auth::guard('web')->logout();

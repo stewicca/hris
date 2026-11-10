@@ -2,29 +2,18 @@
 
 namespace App\Http\Controllers\Salary;
 
+use App\Actions\Salaries\CreatePayslip;
+use App\Actions\Salaries\MarkPayslipPaid;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Salaries\StoreSalaryRequest;
 use App\Models\Employee;
 use App\Models\Salary;
-use App\Notifications\EmployeeNotification;
-use App\Support\AttendanceDeduction;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 class SalaryController extends Controller
 {
-    /**
-     * Render a payslip for printing.
-     *
-     * The admin check is repeated here rather than left to the route group.
-     * This action renders somebody else's salary, so moving the route out of
-     * that group — to let employees print their own from the dashboard, say —
-     * would otherwise turn it into an unscoped read of every payslip by id.
-     * The employee-facing equivalent is Api\SalaryController::print, which
-     * scopes to the owner instead.
-     */
     public function print(Request $request, Salary $salary): View
     {
         abort_unless((bool) $request->user()?->is_admin, 403);
@@ -34,46 +23,20 @@ class SalaryController extends Controller
         return view('salaries.print', ['salary' => $salary]);
     }
 
-    /**
-     * Draft a payslip, adding whatever that month's attendance cost.
-     *
-     * The deduction lines are computed here rather than taken from the form:
-     * they are the one part of a payslip nobody types, and reading them off the
-     * request would let a hand-edited amount decide its own penalty. The form
-     * shows the same figure ahead of time so the total is never a surprise.
-     */
-    public function store(StoreSalaryRequest $request, Employee $employee): RedirectResponse
+    public function store(StoreSalaryRequest $request, Employee $employee, CreatePayslip $createPayslip): RedirectResponse
     {
-        // '!' zeroes every field the format does not carry. Without it PHP
-        // fills the day from today, so a payslip filed on the 31st for a
-        // 30-day month silently lands in the month after the requested one.
-        $period = Carbon::createFromFormat('!Y-m', $request->period);
-
-        $salary = $employee->salaries()->create([
-            'period' => $period,
-            'components' => [
-                ...$request->components,
-                ...AttendanceDeduction::forMonth($employee, $period)->salaryComponents(),
-            ],
-        ]);
-
-        $employee->user?->notify(new EmployeeNotification(
-            'Slip Gaji Terbit',
-            "Slip gaji periode {$salary->period_label} sudah tersedia.",
-            'salary',
-        ));
+        $createPayslip->handle(
+            employee: $employee,
+            periodString: $request->string('period')->value(),
+            components: $request->input('components', []),
+        );
 
         return back()->with('success', 'Slip gaji berhasil dibuat.');
     }
 
-    public function markPaid(Salary $salary): RedirectResponse
+    public function markPaid(Salary $salary, MarkPayslipPaid $markPaid): RedirectResponse
     {
-        abort_if($salary->status === 'paid', 403, 'Slip gaji ini sudah dibayar.');
-
-        $salary->update([
-            'status' => 'paid',
-            'paid_at' => now(),
-        ]);
+        $markPaid->handle($salary);
 
         return back()->with('success', 'Slip gaji ditandai sudah dibayar.');
     }

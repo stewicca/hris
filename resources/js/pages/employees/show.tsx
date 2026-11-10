@@ -86,7 +86,8 @@ function formatDuration(checkIn: string | null, checkOut: string | null) {
     if (!checkIn || !checkOut) return '—';
     const [ih, im] = checkIn.split(':').map(Number);
     const [oh, om] = checkOut.split(':').map(Number);
-    const totalMinutes = oh * 60 + om - (ih * 60 + im);
+    const rawMinutes = oh * 60 + om - (ih * 60 + im);
+    const totalMinutes = rawMinutes < 0 ? rawMinutes + 1440 : rawMinutes;
     if (totalMinutes <= 0) return '—';
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;

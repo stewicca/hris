@@ -1,0 +1,15 @@
+{
+    "name": "@hris/face-recognition",
+    "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "projectType": "application",
+    "sourceRoot": "services/face-recognition/app",
+    "targets": {
+        "check": {
+            "executor": "nx:run-commands",
+            "options": {
+                "cwd": "services/face-recognition",
+                "command": "python3 -m py_compile app/main.py app/face_engine.py"
+            }
+        }
+    }
+}
