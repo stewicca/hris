@@ -31,6 +31,8 @@ COPY . .
 
 ARG VITE_APP_NAME=HRIS
 ENV VITE_APP_NAME=${VITE_APP_NAME}
+ENV CI=true
+ENV NX_DAEMON=false
 
 # Build the dashboard (Laravel/Inertia), the employee SPA and the kiosk terminal.
 # NOTE: the open-file limit must be raised via `podman build --ulimit nofile`
