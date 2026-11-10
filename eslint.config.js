@@ -80,6 +80,9 @@ export default [
     },
     {
         ignores: [
+            '.agents/**',
+            '.claude/**',
+            'skills/**',
             'vendor',
             'node_modules',
             // Built SPA bundles. Linting a minified bundle produces thousands
