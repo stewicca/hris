@@ -3,11 +3,11 @@
 
 # Laravel Boost Guidelines
 
-The Laravel Boost guidelines are specifically curated by Laravel maintainers for this application. These guidelines should be followed closely to ensure the best experience when building Laravel applications.
+Laravel Boost guidelines curated by Laravel maintainers for this app. Follow closely when building Laravel apps.
 
 ## Foundational Context
 
-This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
+Laravel app with main ecosystem packages & versions below. Abide by these exact packages & versions.
 
 - php - 8.4
 - inertiajs/inertia-laravel (INERTIA_LARAVEL) - v2
@@ -31,47 +31,56 @@ This application is a Laravel application and its main Laravel ecosystems packag
 
 ## Skills Activation
 
-This project has domain-specific skills available. You MUST activate the relevant skill whenever you work in that domain—don't wait until you're stuck.
+Domain-specific skills available. MUST activate relevant skill immediately when working in that domain.
 
-- `fortify-development` — ACTIVATE when the user works on authentication in Laravel. This includes login, registration, password reset, email verification, two-factor authentication (2FA/TOTP/QR codes/recovery codes), profile updates, password confirmation, or any auth-related routes and controllers. Activate when the user mentions Fortify, auth, authentication, login, register, signup, forgot password, verify email, 2FA, or references app/Actions/Fortify/, CreateNewUser, UpdateUserProfileInformation, FortifyServiceProvider, config/fortify.php, or auth guards. Fortify is the frontend-agnostic authentication backend for Laravel that registers all auth routes and controllers. Also activate when building SPA or headless authentication, customizing login redirects, overriding response contracts like LoginResponse, or configuring login throttling. Do NOT activate for Laravel Passport (OAuth2 API tokens), Socialite (OAuth social login), or non-auth Laravel features.
-- `laravel-best-practices` — Apply this skill whenever writing, reviewing, or refactoring Laravel PHP code. This includes creating or modifying controllers, models, migrations, form requests, policies, jobs, scheduled commands, service classes, and Eloquent queries. Triggers for N+1 and query performance issues, caching strategies, authorization and security patterns, validation, error handling, queue and job configuration, route definitions, and architectural decisions. Also use for Laravel code reviews and refactoring existing Laravel code to follow best practices. Covers any task involving Laravel backend PHP code patterns.
-- `wayfinder-development` — Use this skill for Laravel Wayfinder which auto-generates typed functions for Laravel controllers and routes. ALWAYS use this skill when frontend code needs to call backend routes or controller actions. Trigger when: connecting any React/Vue/Svelte/Inertia frontend to Laravel controllers, routes, building end-to-end features with both frontend and backend, wiring up forms or links to backend endpoints, fixing route-related TypeScript errors, importing from @/actions or @/routes, or running wayfinder:generate. Use Wayfinder route functions instead of hardcoded URLs. Covers: wayfinder() vite plugin, .url()/.get()/.post()/.form(), query params, route model binding, tree-shaking. Do not use for backend-only task
-- `pest-testing` — Use this skill for Pest PHP testing in Laravel projects only. Trigger whenever any test is being written, edited, fixed, or refactored — including fixing tests that broke after a code change, adding assertions, converting PHPUnit to Pest, adding datasets, and TDD workflows. Always activate when the user asks how to write something in Pest, mentions test files or directories (tests/Feature, tests/Unit, tests/Browser), or needs browser testing, smoke testing multiple pages for JS errors, or architecture tests. Covers: test()/it()/expect() syntax, datasets, mocking, browser testing (visit/click/fill), smoke testing, arch(), Livewire component tests, RefreshDatabase, and all Pest 4 features. Do not use for factories, seeders, migrations, controllers, models, or non-test PHP code.
-- `inertia-react-development` — Develops Inertia.js v2 React client-side applications. Activates when creating React pages, forms, or navigation; using <Link>, <Form>, useForm, or router; working with deferred props, prefetching, or polling; or when user mentions React with Inertia, React pages, React forms, or React navigation.
-- `tailwindcss-development` — Always invoke when the user's message includes 'tailwind' in any form. Also invoke for: building responsive grid layouts (multi-column card grids, product grids), flex/grid page structures (dashboards with sidebars, fixed topbars, mobile-toggle navs), styling UI components (cards, tables, navbars, pricing sections, forms, inputs, badges), adding dark mode variants, fixing spacing or typography, and Tailwind v3/v4 work. The core use case: writing or fixing Tailwind utility classes in HTML templates (Blade, JSX, Vue). Skip for backend PHP logic, database queries, API routes, JavaScript with no HTML/CSS component, CSS file audits, build tool configuration, and vanilla CSS.
+- `fortify-development` — ACTIVATE on Laravel authentication: login, registration, password reset, email verification, two-factor authentication (2FA/TOTP/QR codes/recovery codes), profile updates, password confirmation, auth routes and controllers. Activate when user mentions Fortify, auth, authentication, login, register, signup, forgot password, verify email, 2FA, or references app/Actions/Fortify/, CreateNewUser, UpdateUserProfileInformation, FortifyServiceProvider, config/fortify.php, auth guards, SPA or headless auth, login redirects, LoginResponse, or login throttling. Do NOT activate for Laravel Passport (OAuth2 API tokens), Socialite (OAuth social login), or non-auth features.
+- `laravel-best-practices` — Apply when writing, reviewing, or refactoring Laravel PHP code: controllers, models, migrations, form requests, policies, jobs, scheduled commands, service classes, Eloquent queries. Triggers for N+1 and query performance, caching, auth and security patterns, validation, error handling, queue and jobs, routes, architecture, code reviews.
+- `wayfinder-development` — Use for Laravel Wayfinder auto-generated typed functions for controllers and routes. ALWAYS use when frontend calls backend routes or controller actions. Trigger when: connecting React/Vue/Svelte/Inertia frontend to Laravel controllers and routes, end-to-end features, wiring forms or links to backend endpoints, route TypeScript errors, importing from @/actions or @/routes, or running wayfinder:generate. Use Wayfinder route functions, never hardcoded URLs. Covers: wayfinder() vite plugin, .url()/.get()/.post()/.form(), query params, route model binding, tree-shaking. Do not use for backend-only tasks.
+- `pest-testing` — Use for Pest PHP testing in Laravel projects only. Trigger when writing, editing, fixing, or refactoring tests, adding assertions, converting PHPUnit to Pest, datasets, TDD. Always activate when user mentions Pest, test files or directories (tests/Feature, tests/Unit, tests/Browser), browser testing, smoke testing for JS errors, or architecture tests. Covers: test()/it()/expect() syntax, datasets, mocking, browser testing (visit/click/fill), smoke testing, arch(), Livewire tests, RefreshDatabase, Pest 4 features. Do not use for factories, seeders, migrations, controllers, models, or non-test PHP code.
+- `inertia-react-development` — Develops Inertia.js v2 React client-side apps. Activates when creating React pages, forms, navigation; using <Link>, <Form>, useForm, router; deferred props, prefetching, polling; or React with Inertia.
+- `tailwindcss-development` — Always invoke when message includes 'tailwind', responsive grid layouts, flex/grid page structures, styling UI components (cards, tables, navbars, pricing sections, forms, inputs, badges), dark mode variants, spacing or typography, Tailwind v3/v4 work, or Tailwind utility classes in HTML templates (Blade, JSX, Vue). Skip for backend PHP logic, database queries, API routes, JS with no HTML/CSS component, CSS audits, build config, vanilla CSS.
+- `shadcn` — Activate when adding, customizing, or working with shadcn/ui components (`components.json`, `npx shadcn`, Radix/Base UI primitives, UI component composition).
+- `ponytail` (`ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`) — ALWAYS use `ponytail` in `full` mode during all work. Lazy senior dev mode: smallest complete code change, reuse existing codebase/stdlib/dependencies first, quality reviews (`/ponytail-review`), repo audits (`/ponytail-audit`), shortcut debt scans (`/ponytail-debt`).
+- `caveman` (`caveman`, `ultracave`, `megacave`, `caveman-commit`, `caveman-review`, `caveman-compress`, `caveman-stats`, `caveman-help`, `cavecrew`) — ALWAYS use `caveman` in `full` mode during all work. Terse mode: answer first, drop fluff, keep technical substance/code/paths/errors verbatim, terse commit messages (`/caveman-commit`), one-line diff reviews (`/caveman-review`), subagent delegation (`cavecrew`).
+- `caveman-compress` — ALWAYS use `caveman-compress` when writing or updating documentation, memory files, or prose/writing-related files. Compress prose to caveman format; preserve code blocks, inline code, URLs, file paths, commands, headings, structure verbatim.
+- `caveman-commit` — ALWAYS use `caveman-commit` when committing changes or generating git commit messages (Conventional Commits compressed to intent only).
 
 ## Conventions
 
-- You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, and naming.
-- Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
-- Check for existing components to reuse before writing a new one.
+- Follow existing code conventions. Check sibling files for structure, approach, naming before creating or editing files.
+- Use descriptive names for variables and methods (e.g., `isRegisteredForDiscounts`, not `discount()`).
+- Check existing components to reuse before writing new ones.
 
 ## Database Migrations
 
-- **Filename numbering:** Migrations use a sequential `0001_01_01_00000X` prefix (e.g. `0001_01_01_000016_...`). Never use the auto-generated `YYYY_MM_DD_HHMMSS_` timestamp form. Before creating a migration, check the highest existing number and use the next one.
-- **Add-column migrations:** A production database has existed since 2026-08-19, so this rule has flipped. Never edit a `create` migration that production has already run — Laravel will not re-run it, and the change silently never reaches production. Write a separate alter-migration with the next sequential number instead. Guard each step (`Schema::hasColumn`, and see `0001_01_01_000017` for how the status enum is checked per driver) so the file is a no-op against a database built from the create migrations, which is what a fresh install and CI both are.
-- **Verify a migration against MySQL, not only SQLite.** Production runs MySQL 8.4 while the tests run SQLite, and the two disagree on exactly the things migrations touch — enums above all. The recipe is a two-phase simulation: a `git worktree` at the deployed commit migrated into one MySQL database, the new migrations applied on top, then `mysqldump --no-data` compared against a database migrated fresh. They should differ by nothing but declaration order.
+- **Filename numbering:** Use sequential `0001_01_01_00000X` prefix (e.g. `0001_01_01_000016_...`). Never use auto-generated `YYYY_MM_DD_HHMMSS_` timestamp. Check highest existing number and use next one.
+- **Add-column migrations:** Production DB exists since 2026-08-19. Never edit a `create` migration already run in production — Laravel will not re-run it. Write separate alter-migration with next sequential number. Guard each step (`Schema::hasColumn`, see `0001_01_01_000017` for driver status enum check) so file is no-op on fresh install and CI.
+- **Verify a migration against MySQL, not only SQLite.** Production runs MySQL 8.4; tests run SQLite (enums differ). Two-phase check: `git worktree` at deployed commit migrated into MySQL DB, apply new migrations on top, compare `mysqldump --no-data` against fresh migrated DB. Must match except declaration order.
 
 ## Verification Scripts
 
-- Do not create verification scripts or tinker when tests cover that functionality and prove they work. Unit and feature tests are more important.
+- Do not create verification scripts or tinker when unit and feature tests cover and prove functionality.
 
 ## Application Structure & Architecture
 
-- Stick to existing directory structure; don't create new base folders without approval.
-- Do not change the application's dependencies without approval.
+- Keep existing directory structure; do not create new base folders without approval.
+- Do not change dependencies without approval.
 
 ## Frontend Bundling
 
-- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.
+- If frontend change not visible in UI, ask user to run `npm run build`, `npm run dev`, or `composer run dev`.
 
 ## Documentation Files
 
-- You must only create documentation files if explicitly requested by the user.
+- Create documentation files only if explicitly requested by user.
+- When writing or updating documentation or memory files, MUST apply `caveman-compress` to keep prose compressed while preserving code blocks, commands, file paths, headings exact.
 
-## Replies
+## Replies & Execution Mode
 
-- Be concise in your explanations - focus on what's important rather than explaining obvious details.
+- Always use **Ponytail (`full`)** during coding and task execution.
+- Always use **Caveman (`full`)** during task execution and replies.
+- Always use **`caveman-commit`** when committing changes or generating git commit messages.
+- Keep explanations concise; focus on key points, skip obvious details.
 
 === boost rules ===
 
@@ -79,158 +88,213 @@ This project has domain-specific skills available. You MUST activate the relevan
 
 ## Tools
 
-- Laravel Boost is an MCP server with tools designed specifically for this application. Prefer Boost tools over manual alternatives like shell commands or file reads.
-- Use `database-query` to run read-only queries against the database instead of writing raw SQL in tinker.
+- Prefer Laravel Boost MCP tools over manual shell commands or file reads.
+- Use `database-query` for read-only DB queries instead of raw SQL in tinker.
 - Use `database-schema` to inspect table structure before writing migrations or models.
-- Use `get-absolute-url` to resolve the correct scheme, domain, and port for project URLs. Always use this before sharing a URL with the user.
-- Use `browser-logs` to read browser logs, errors, and exceptions. Only recent logs are useful, ignore old entries.
+- Use `get-absolute-url` to resolve scheme, domain, port before sharing project URLs.
+- Use `browser-logs` to read recent browser logs, errors, exceptions.
 
 ## Searching Documentation (IMPORTANT)
 
-- Always use `search-docs` before making code changes. Do not skip this step. It returns version-specific docs based on installed packages automatically.
-- Pass a `packages` array to scope results when you know which packages are relevant.
-- Use multiple broad, topic-based queries: `['rate limiting', 'routing rate limiting', 'routing']`. Expect the most relevant results first.
-- Do not add package names to queries because package info is already shared. Use `test resource table`, not `filament 4 test resource table`.
+- Always run `search-docs` before code changes; returns version-specific docs for installed packages.
+- Pass `packages` array to scope results when relevant packages known.
+- Use multiple broad topic queries: `['rate limiting', 'routing rate limiting', 'routing']`.
+- Omit package names from queries; use `test resource table`, not `filament 4 test resource table`.
 
 ### Search Syntax
 
-1. Use words for auto-stemmed AND logic: `rate limit` matches both "rate" AND "limit".
-2. Use `"quoted phrases"` for exact position matching: `"infinite scroll"` requires adjacent words in order.
-3. Combine words and phrases for mixed queries: `middleware "rate limit"`.
-4. Use multiple queries for OR logic: `queries=["authentication", "middleware"]`.
+1. Words for auto-stemmed AND logic: `rate limit` matches "rate" AND "limit".
+2. `"quoted phrases"` for exact match: `"infinite scroll"`.
+3. Combine words and phrases: `middleware "rate limit"`.
+4. Multiple queries for OR logic: `queries=["authentication", "middleware"]`.
 
 ## Artisan
 
-- Run Artisan commands directly via the command line (e.g., `php artisan route:list`). Use `php artisan list` to discover available commands and `php artisan [command] --help` to check parameters.
+- Run Artisan commands directly (e.g., `php artisan route:list`). Discover commands with `php artisan list` and check flags with `php artisan [command] --help`.
 - Inspect routes with `php artisan route:list`. Filter with: `--method=GET`, `--name=users`, `--path=api`, `--except-vendor`, `--only-vendor`.
-- Read configuration values using dot notation: `php artisan config:show app.name`, `php artisan config:show database.default`. Or read config files directly from the `config/` directory.
-- To check environment variables, read the `.env` file directly.
+- Read config with dot notation: `php artisan config:show app.name`, `php artisan config:show database.default`, or read `config/` files directly.
+- Read `.env` file directly for environment variables.
 
 ## Tinker
 
-- Execute PHP in app context for debugging and testing code. Do not create models without user approval, prefer tests with factories instead. Prefer existing Artisan commands over custom tinker code.
-- Always use single quotes to prevent shell expansion: `php artisan tinker --execute 'Your::code();'`
-  - Double quotes for PHP strings inside: `php artisan tinker --execute 'User::where("active", true)->count();'`
+- Run PHP in app context for debugging. Do not create models without approval; prefer tests with factories and existing Artisan commands.
+- Use single quotes to prevent shell expansion: `php artisan tinker --execute 'Your::code();'`
+  - Use double quotes inside PHP strings: `php artisan tinker --execute 'User::where("active", true)->count();'`
 
 === php rules ===
 
 # PHP
 
-- Always use curly braces for control structures, even for single-line bodies.
-- Use PHP 8 constructor property promotion: `public function __construct(public GitHub $github) { }`. Do not leave empty zero-parameter `__construct()` methods unless the constructor is private.
-- Use explicit return type declarations and type hints for all method parameters: `function isAccessible(User $user, ?string $path = null): bool`
+- Always use curly braces for control structures, including single-line bodies.
+- Use PHP 8 constructor property promotion: `public function __construct(public GitHub $github) { }`. Omit empty zero-parameter `__construct()` unless private.
+- Declare explicit return types and parameter type hints: `function isAccessible(User $user, ?string $path = null): bool`
 - Use TitleCase for Enum keys: `FavoritePerson`, `BestLake`, `Monthly`.
-- Prefer PHPDoc blocks over inline comments. Only add inline comments for exceptionally complex logic.
+- Prefer PHPDoc blocks over inline comments; inline comments only for complex logic.
 - Use array shape type definitions in PHPDoc blocks.
 
 === deployments rules ===
 
 # Deployment
 
-- Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
+- Deploy with [Laravel Cloud](https://cloud.laravel.com/).
 
 === tests rules ===
 
 # Test Enforcement
 
-- Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
+- Test every change programmatically: write or update test, then run affected tests.
+- Run minimum tests needed using `php artisan test --compact` with filename or filter.
 
 === inertia-laravel/core rules ===
 
 # Inertia
 
-- Inertia creates fully client-side rendered SPAs without modern SPA complexity, leveraging existing server-side patterns.
-- Components live in `resources/js/pages` (unless specified in `vite.config.js`). Use `Inertia::render()` for server-side routing instead of Blade views.
-- ALWAYS use `search-docs` tool for version-specific Inertia documentation and updated code examples.
-- IMPORTANT: Activate `inertia-react-development` when working with Inertia client-side patterns.
+- Components live in `resources/js/pages` (unless set in `vite.config.js`). Render with `Inertia::render()` instead of Blade views.
+- ALWAYS use `search-docs` for version-specific Inertia docs and examples.
+- IMPORTANT: Activate `inertia-react-development` for Inertia client-side patterns.
 
 # Inertia v2
 
-- Use all Inertia features from v1 and v2. Check the documentation before making changes to ensure the correct approach.
-- New features: deferred props, infinite scroll, merging props, polling, prefetching, once props, flash data.
-- When using deferred props, add an empty state with a pulsing or animated skeleton.
+- Use Inertia v1 and v2 features; check docs before changes.
+- v2 features: deferred props, infinite scroll, merging props, polling, prefetching, once props, flash data.
+- Add pulsing or animated skeleton empty state when using deferred props.
 
 === laravel/core rules ===
 
 # Do Things the Laravel Way
 
-- Use `php artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using `php artisan list` and check their parameters with `php artisan [command] --help`.
-- If you're creating a generic PHP class, use `php artisan make:class`.
-- Pass `--no-interaction` to all Artisan commands to ensure they work without user input. You should also pass the correct `--options` to ensure correct behavior.
+- Create files with `php artisan make:` commands. List with `php artisan list`, check flags with `php artisan [command] --help`.
+- Create generic PHP classes with `php artisan make:class`.
+- Pass `--no-interaction` and required `--options` to all Artisan commands.
 
 ### Model Creation
 
-- When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `php artisan make:model --help` to check the available options.
+- Create factories and seeders with new models; check `php artisan make:model --help` for options.
 
 ## APIs & Eloquent Resources
 
-- For APIs, default to using Eloquent API Resources and API versioning unless existing API routes do not, then you should follow existing application convention.
+- Use Eloquent API Resources and API versioning unless existing routes follow another convention.
 
 ## URL Generation
 
-- When generating links to other pages, prefer named routes and the `route()` function.
+- Prefer named routes and `route()` function for links.
 
 ## Testing
 
-- When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
-- Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
-- When creating tests, make use of `php artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
+- Use model factories and existing custom states in tests.
+- Faker: use `$this->faker->word()` or `fake()->randomDigit()`; follow existing convention (`$this->faker` vs `fake()`).
+- Create feature tests with `php artisan make:test [options] {name}`, or unit tests with `--unit`. Prefer feature tests.
 
 ## Vite Error
 
-- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
+- On "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest", run `npm run build` or ask user to run `npm run dev` or `composer run dev`.
 
 === laravel/v12 rules ===
 
 # Laravel 12
 
-- CRITICAL: ALWAYS use `search-docs` tool for version-specific Laravel documentation and updated code examples.
-- Since Laravel 11, Laravel has a new streamlined file structure which this project uses.
+- CRITICAL: ALWAYS use `search-docs` for Laravel 12 docs and examples.
+- Uses Laravel 11+ streamlined file structure.
 
 ## Laravel 12 Structure
 
-- In Laravel 12, middleware are no longer registered in `app/Http/Kernel.php`.
-- Middleware are configured declaratively in `bootstrap/app.php` using `Application::configure()->withMiddleware()`.
-- `bootstrap/app.php` is the file to register middleware, exceptions, and routing files.
-- `bootstrap/providers.php` contains application specific service providers.
-- The `app/Console/Kernel.php` file no longer exists; use `bootstrap/app.php` or `routes/console.php` for console configuration.
-- Console commands in `app/Console/Commands/` are automatically available and do not require manual registration.
+- No `app/Http/Kernel.php` middleware registration.
+- Configure middleware declaratively in `bootstrap/app.php` via `Application::configure()->withMiddleware()`.
+- Register middleware, exceptions, routing files in `bootstrap/app.php`.
+- Service providers live in `bootstrap/providers.php`.
+- No `app/Console/Kernel.php`; configure console in `bootstrap/app.php` or `routes/console.php`.
+- Commands in `app/Console/Commands/` auto-register.
 
 ## Database
 
-- When modifying a column, the migration must include all of the attributes that were previously defined on the column. Otherwise, they will be dropped and lost.
-- Laravel 12 allows limiting eagerly loaded records natively, without external packages: `$query->latest()->limit(10);`.
+- Include all existing column attributes when modifying a column in a migration, or they drop.
+- Limit eager loads natively: `$query->latest()->limit(10);`.
 
 ### Models
 
-- Casts can and likely should be set in a `casts()` method on a model rather than the `$casts` property. Follow existing conventions from other models.
+- Define casts in `casts()` method rather than `$casts` property, matching existing models.
 
 === wayfinder/core rules ===
 
 # Laravel Wayfinder
 
-Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `@/actions/` (controllers) or `@/routes/` (named routes).
+Generate TypeScript route functions with Wayfinder. Import from `@/actions/` (controllers) or `@/routes/` (named routes).
 
 === pint/core rules ===
 
 # Laravel Pint Code Formatter
 
-- If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
-- Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
+- Run `vendor/bin/pint --dirty --format agent` after modifying PHP files.
+- Do not run `vendor/bin/pint --test --format agent`; run `vendor/bin/pint --format agent` to fix formatting directly.
 
 === pest/core rules ===
 
 ## Pest
 
-- This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
-- Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
+- Create Pest tests: `php artisan make:test --pest {name}`.
+- Run tests: `php artisan test --compact` or `php artisan test --compact --filter=testName`.
 - Do NOT delete tests without approval.
 
 === inertia-react/core rules ===
 
 # Inertia + React
 
-- IMPORTANT: Activate `inertia-react-development` when working with Inertia React client-side patterns.
+- IMPORTANT: Activate `inertia-react-development` for Inertia React client-side patterns.
 
 </laravel-boost-guidelines>
+
+<!-- ponytail-begin -->
+# Ponytail, lazy senior dev mode
+
+Lazy senior dev. Best code is code never written. Solve whole problem with least new code. End reply with 1-2 lines: what was skipped or unchecked, and any risk user must know.
+
+## Before you write
+
+Read task and touched code. List every place change reaches: callers, tests, fixtures, config, exports. Check what change could break: destroyed or exposed data, broken callers. That is scope; extra features are not.
+
+## The smallest complete change
+
+Take first option that fully works:
+
+1. Need to exist? Skip unrequested features, options, flexibility and name them in one line. Vague request ("build me X") gets smallest core version.
+2. Already in codebase (helper, component, service, pattern)? Reuse following surrounding code.
+3. Standard library or platform feature? Use it unless project has its own.
+4. Installed dependency? Use it. Never add dependency for a few lines.
+5. Clear one-liner? Use one line.
+6. Otherwise: minimum working code.
+
+- Lazy about solution, never about change: finish callers, tests, fixtures broken by change.
+- No unrequested abstraction, wrapper, type conversion, option, config, boilerplate, or "for later" code. Deletion beats addition. Keep codebase layers, interfaces, conventions.
+- Shortest readable working diff wins.
+- Comment only non-obvious *why* in one line.
+- Bug fix: grep all callers first; fix root cause once in shared code.
+- Keep error handling and validation when moving or merging code.
+- Equal size options: pick edge-case-correct one.
+- New non-trivial logic (branch, loop, parser, money, security, new script or app) needs one small test or assert check. Trivial changes need none.
+- Mark deliberate shortcut with limit: `shortcut: <the limit>, <when to upgrade>`.
+
+Never cut: trust-boundary validation, data-loss error handling, security, accessibility, hardware calibration, user requirements.
+<!-- ponytail-end -->
+
+<!-- caveman-begin -->
+Respond terse like smart caveman. All technical substance stay. Only fluff die.
+
+Rules:
+- Answer first: Answer, then reason, then next step.
+- Kill ceremony: No greeting, hedging, pleasantries, recap, or closer.
+- Short word: "fix" not "implement a solution for".
+- Articles optional, meaning never: Drop a/an/the when sentence reads in one pass.
+- One idea per sentence: ASD-STE100 floor: 20 words max, active voice, imperative instructions, one term per thing, clear pronoun referent.
+- Payload verbatim: Code blocks unchanged.
+- Tool runs: bounded status: No text between routine calls.
+- User's language: Compress style, not language.
+- Never perform caveman: No "caveman mode on", no "me think", no "Caveman:" prefix, no normal answer plus caveman copy.
+
+Switch: /caveman (default), /ultracave (fragments, each fact once), /megacave (Classical Chinese 文言文)
+Stop: "stop caveman" or "normal mode"
+
+Auto-Clarity: plain prose for security warnings, irreversible actions, step order a fragment could scramble, user confused, questions to user. Resume after.
+
+Boundaries: code, comments, PRs written normal; existing comments kept unless asked. Writing documentation or memory files (prose/writing): always use `caveman-compress`. Committing or generating commit messages: always use `caveman-commit`.
+Floor: code, commands, paths, numbers and error strings verbatim; never drop not/never/no/only.
+<!-- caveman-end -->
